@@ -25,63 +25,63 @@
 #include <networktables/NetworkTableInstance.h>
 #include "GripPipeline.h"
 #include <vision/VisionRunner.h>
+#include <iostream>
 
 
 class Robot : public frc::TimedRobot {
 
- public:
-  nt::NetworkTableEntry xEntry;
-  nt::NetworkTableEntry yEntry;  
+public:
 
   float rval= 0;
   float lval= 0;
   
+  // std::shared_ptr<NetworkTable> visiontable;
+  // visionTable = Network::GetTable("GRIP/myContoursReport");
+  nt::NetworkTableEntry xEntry;
+  nt::NetworkTableEntry yEntry;
+
   void RobotInit() {
     leftencoder.SetDistancePerPulse(1);
     rightencoder.SetDistancePerPulse(1);
     frc::CameraServer::GetInstance()->StartAutomaticCapture();
     frc::CameraServer::GetInstance()->AddAxisCamera("10.5.9.53");
-    frc::VisionRunner<cs::AxisCamera>::VisionRunner(frc::CameraServer::AddAxisCamera("10.5.9.53"), grip::GripPipeline(), VisionAlert());
+    //frc::VisionRunner<cs::AxisCamera>::VisionRunner(frc::CameraServer::AddAxisCamera("10.5.9.53"), grip::GripPipeline(), VisionAlert());
     
-    /*auto inst=nt::NetworkTableInstance::GetDefault();
-    auto table =inst.GetTable("datatable");
-    xEntry= table->GetEntry("X");
-    yEntry = table->GetEntry("Y");*/
-  }
-
- void AutonomousPeriodic() {
     comp->SetClosedLoopControl(true);
 
+    auto inst = nt::NetworkTableInstance::GetDefault();
+    auto table = inst.GetTable("datatable");
+    inst.StartClientTeam(509);
+    xEntry = table->GetEntry("X");
+    yEntry = table->GetEntry("Y");
+    double x = 0;
+    double y = 0;
+
+    xEntry.SetDouble(x);
+    yEntry.SetDouble(y);
     
-    m_rf->Set(.1);
-    m_rr->Set(.1);
-    m_lf->Set(.1);
-    m_lr->Set(.1);
-  } 
-
+    //nt::AddEntryListener("X", table, key, entry, value, flags);
+  }
   void TeleopPeriodic()  {
-      comp->SetClosedLoopControl(true);
-      
-      //TankDrive();
+  
+    comp->SetClosedLoopControl(true);
 
-      if (l_stick.GetRawButton(2)) {
-        panelsol.Set(frc::DoubleSolenoid::Value::kForward);
-      } else {
-        panelsol.Set(frc::DoubleSolenoid::Value::kReverse);
-      }
+    //TankDrive();
 
-      PID(-2000,-2000,0.000038,0,0);
-      motorSet(LSet, RSet);
-
-      double x=0;
-      xEntry.SetDouble(x);
-
-      frc::SmartDashboard::PutNumber("Encoder Left", leftencoder.GetRate());
-      frc::SmartDashboard::PutNumber("Encoder Right", rightencoder.GetRate());
-
-      frc::SmartDashboard::PutNumber("NetworkTables", x);
-      x += 1.0;
+    if (l_stick.GetRawButton(2)) {
+      panelsol.Set(frc::DoubleSolenoid::Value::kForward);
+    } else {
+      panelsol.Set(frc::DoubleSolenoid::Value::kReverse);
     }
+
+    // PID(-2000,-2000,0.000038,0,0);
+    // motorSet(LSet, RSet);
+
+    frc::SmartDashboard::PutNumber("Encoder Left", leftencoder.GetRate());
+    frc::SmartDashboard::PutNumber("Encoder Right", rightencoder.GetRate());
+
+      
+  }
 
   void TankDrive() {
       rval= -r_stick.GetY();
@@ -112,9 +112,7 @@ class Robot : public frc::TimedRobot {
       LSet=PIDCalc(-LSpeed, RateLeft,Kp,Ki,Kd);
       RSet=PIDCalc(RSpeed, RateRight,Kp,Ki,Kd);
     }
-  void VisionAlert() {
-    frc::SmartDashboard::PutNumber("Vision Alert", 1);
-  }
+
 
   }
 
@@ -135,7 +133,7 @@ class Robot : public frc::TimedRobot {
   WPI_TalonSRX * m_lr = new WPI_TalonSRX (3);
   frc::Encoder leftencoder {2, 3};
   frc::Encoder rightencoder {0, 1,true};
-  frc::DoubleSolenoid panelsol {2, 3};
+  frc::DoubleSolenoid panelsol {4, 5};
   
   //frc::PIDController leftcontrol(0,0,0,leftencoder.GetRate(),l_stick.GetY());
 

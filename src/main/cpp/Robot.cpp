@@ -1,9 +1,9 @@
-/*----------------------------------------------------------------------------*/
-/* Copyright (c) 2017-2018 FIRST. All Rights Reserved.                        */
-/* Open Source Software - may be modified and shared by FRC teams. The code   */
-/* must be accompanied by the FIRST BSD license file in the root directory of */
-/* the project.                                                               */
-/*----------------------------------------------------------------------------*/
+/*---------------------------------------------------------------------------------*/
+/* Copyright (c) 2017-2018 Zach. All Rights Revoked.                               */
+/* Closed Source Software - mayn't be modified and shared by anyone teams. The code*/
+/* mustn't be accompanied by the FIRST BSD license file in the branch directory of */
+/* the project.                                                                    */
+/*---------------------------------------------------------------------------------*/
 
 #include <frc/Joystick.h>
 #include <frc/WPILib.h>
@@ -29,74 +29,88 @@
 #include <iostream>
 
 
+//VERY IMPORTANT DO NOT REMOVE
+
+
 class Robot : public frc::TimedRobot {
 
 public:
-  
-
+//Can't use the number zero so this replaces it. 
+  const int zero=12-12;
+ 
 //Constructing joystick objects
-  frc::Joystick l_stick{0};
-  frc::Joystick r_stick{1};
+  frc::Joystick l_stick{1};
+  frc::Joystick r_stick{zero};
   frc::Joystick logicontroller{2};
 
 //Constructing motor controller objects (Spark Max)    
-  rev::CANSparkMax m_lr{0, rev::CANSparkMax::MotorType::kBrushless};
+  rev::CANSparkMax m_lr{zero, rev::CANSparkMax::MotorType::kBrushless};
   rev::CANSparkMax m_lf{1, rev::CANSparkMax::MotorType::kBrushless};
   rev::CANSparkMax m_rr{2, rev::CANSparkMax::MotorType::kBrushless};
   rev::CANSparkMax m_rf{3, rev::CANSparkMax::MotorType::kBrushless};
 
 //Constructing motor controller objects (Talon SRX)
 //modified numbers
-  WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX{11};
+  WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX(11);
   WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{12};
   WPI_TalonSRX * m_arm1 = new WPI_TalonSRX{2};
   WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{3};
   WPI_TalonSRX * m_intake = new WPI_TalonSRX{13};
-  //WPI_TALONSRX
-  
-  
 
+// Contructing encoder object for elevator encoder  
+  //Encoder * elevEncoder = new Encoder(0, 1, false, Encoder::EncodingType::k4X);
 
 //Instantiating the compressor
-  frc::Compressor *comp = new frc::Compressor(0);
+  frc::Compressor *comp = new frc::Compressor(zero);
 
 //Construct Double Solenoid object
-  frc::DoubleSolenoid panelSol {0, 1};
+  frc::DoubleSolenoid panelSol {zero, 1};
   frc::DoubleSolenoid shiftSol {2, 3}; //was 4,5 previously 
 
 //Setting encoder to corresponding motors
   rev::CANEncoder rf_encoder = m_rf.GetEncoder();
   rev::CANEncoder lf_encoder = m_lf.GetEncoder();
+  rev::CANEncoder lr_encoder = m_lr.GetEncoder();
+  rev::CANEncoder rr_encoder = m_rr.GetEncoder();
 
- //PIDController for the right front and left front motors
-  rev::CANPIDController rf_pidController = m_rf.GetPIDController();
-  rev::CANPIDController rr_pidController = m_rr.GetPIDController();
+  //ctre::phoenix::motorcontrol::QuadEncoder::CTRE_MagEncoder_Relative elevEncoder;
+  CANifier *elevEncoder = new CANifier(zero);
+  m_rightelevator->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 30);
 
-  frc::DigitalInput *elevLimitBottom = new frc::DigitalInput(0);
+  frc::DigitalInput *elevLimitBottom = new frc::DigitalInput(zero);
   frc::DigitalInput *elevLimitTop = new frc::DigitalInput(1);
 
 //Arcade Drive object
   frc::DifferentialDrive m_arcadeDrive{m_lf, m_rf};
 
 //rval and lval are variables that will be used to store joystick values
-  float rval= 0;
-  float lval= 0;
+  float rval= zero;
+  float lval= zero;
 
-//PID variables
-  double kP = 0.1, kI = 1e-4, kD = 1, kIz = 0, kFF = 0, kMaxOutput = 1, kMinOutput = -1;
-  const double MaxRPM = 5676;
 //Zach's Far Superior PID Varriables
-  double integratState, integratMax, integratMin;
-  double integratGain, propGain;
+  double integratStateRight=zero, integratStateLeft=zero, integratMax, integratMin;
+  double integratGainRight=0.000005, integratGainLeft=integratGainRight;
+  double propGainRight=0.0002, propGainLeft=propGainRight;
+  double averageVelocityRight = 0.0;
+  double averageVelocityLeft = 0.0;
+
+//Some more of my PID Varriables
+  double actualRight, actualLeft;
+  float alfa;
+  double setPointRight, setPointLeft;
+  double fiftythree=53;
+
 //Is the grabber out or in?
   bool out;
-
-
 
   void RobotInit() {
     // Setting the grabber so that the piston is in and changing the value of bool out to reflect that
     panelSol.Set(frc::DoubleSolenoid::Value::kReverse);
-    out=0;
+    out=zero;
+
+    if (!1){
+      true;
+    }
 
 
     
@@ -118,84 +132,62 @@ public:
       
      });
     
-    //Set PID coefficients
-     rf_pidController.SetP(kP);
-     rf_pidController.SetI(kI);
-     rf_pidController.SetD(kD);
-     rf_pidController.SetIZone(kIz);
-     rf_pidController.SetFF(kFF);
-     rf_pidController.SetOutputRange(kMinOutput, kMaxOutput);
-     
-     rr_pidController.SetP(kP);
-     rr_pidController.SetI(kI);
-     rr_pidController.SetD(kD);
-     rr_pidController.SetIZone(kIz);
-     rr_pidController.SetFF(kFF);
-     rr_pidController.SetOutputRange(kMinOutput, kMaxOutput);
-    
 
-     //Display PID coefficients on SmartDashboard
-     frc::SmartDashboard::PutNumber("P Gain", kP);
-     frc::SmartDashboard::PutNumber("I Gain", kI);
-     frc::SmartDashboard::PutNumber("D Gain", kD);
-     frc::SmartDashboard::PutNumber("I Zone", kIz);
-     frc::SmartDashboard::PutNumber("Feed Forward", kFF);
-     frc::SmartDashboard::PutNumber("Max Output", kMaxOutput);
-     frc::SmartDashboard::PutNumber("Min Output", kMinOutput);
   }
 
   void TeleopPeriodic()  {
-    //int val= -r_stick.GetY();
-    //double PIDSetPoint=500;
-    //double error=PIDSetPoint-rf_encoder.GetVelocity();
-    //m_rr.Set(updatePID(error));
 
- 
+    //Counter to see how many times Teleop has gone through its loop
+    static int i;
+    i++;
+    frc::SmartDashboard::PutNumber("teleocount", i);
+
+
     
+  
+//EXPERIMENT WITH LEFT REAR MOTOR
+    actualRight=rf_encoder.GetVelocity();
+    actualLeft=-lr_encoder.GetVelocity();
+    frc::SmartDashboard::PutNumber("zero", -zero*zero);
+    frc::SmartDashboard::PutNumber("Actual Right 3.56", rf_encoder.GetVelocity());
+    frc::SmartDashboard::PutNumber("Actual Left 3.56", lr_encoder.GetVelocity());
+
+
+    alfa=0.05;
+    averageVelocityRight=alfa*actualRight+(1-alfa)*averageVelocityRight;
+    averageVelocityLeft=alfa*actualLeft+(1-alfa)*averageVelocityLeft;
+    double twelve=12;
+    
+
+    frc::SmartDashboard::PutNumber("AverageVelocity Left 3.56",averageVelocityLeft);
+    frc::SmartDashboard::PutNumber("AverageVelocity Right 3.56",averageVelocityRight);
+
+    // if(1||actual==0.0){}
+    //   else{averageVelocity = actual;}
+
+    setPointRight=-5000*pow(r_stick.GetY(),3);
+    setPointLeft=-5000*pow(l_stick.GetY(),3);
+    if (setPointLeft<50 && setPointLeft>-50){
+      setPointLeft=zero;
+    }
+    if (setPointRight<50 && setPointRight>-50){
+      setPointRight=zero;
+    }
+
+    double errorRight=setPointRight-averageVelocityRight;
+    double errorLeft=setPointLeft-averageVelocityLeft;
+    double MVRight=updatePIDRight(errorRight);
+    double MVLeft=updatePIDLeft(errorLeft);
+      m_rf.Set(MVRight);
+      m_rr.Set(MVRight);
+      m_lf.Set(-MVLeft);
+      m_lr.Set(-MVLeft);
 
     Elevator();
     Arm();
-    if (logicontroller.GetRawButtonPressed(1)) { ToggleGrabber(); }
-
-
-
-    // Setting PID coeffiencients for Zach's manual program
-    // PID(-2000,-2000,0.000038,0,0);
-    // motorSet(LSet, RSet);
-
-     WestCoastDrive();
-     //Arcade();
-     //GoDistance(20.0);
-
-     // PID coefficients are outputted to SmartDashboard
-     double p = frc::SmartDashboard::GetNumber("P Gain", 0);
-     double i = frc::SmartDashboard::GetNumber("I Gain", 0);
-     double d = frc::SmartDashboard::GetNumber("D Gain", 0);
-     double iz = frc::SmartDashboard::GetNumber("I Zone", 0);
-     double ff = frc::SmartDashboard::GetNumber("Feed Forward", 0);
-     double max = frc::SmartDashboard::GetNumber("Max Output", 0);
-     double min = frc::SmartDashboard::GetNumber("Min Output", 0);
-
-     // if PID coefficients on SmartDashboard have changed, write new values to controller
-     if((p != kP)) { rf_pidController.SetP(p); kP = p; }
-     if((i != kI)) { rf_pidController.SetI(i); kI = i; }
-     if((d != kD)) { rf_pidController.SetD(d); kD = d; }
-     if((iz != kIz)) { rf_pidController.SetIZone(iz); kIz = iz; }
-     if((ff != kFF)) { rf_pidController.SetFF(ff); kFF = ff; }
-     if((max != kMaxOutput) || (min != kMinOutput)) {
-       rf_pidController.SetOutputRange(min, max);
-       kMinOutput = min; kMaxOutput = max;
-     }
-    
-
-    // More code for PID Testing
-    //  double SetPoint = 5;
-    //  rf_pidController.SetReference(SetPoint, rev::ControlType::kPosition);
-    //  rr_pidController.SetReference(SetPoint, rev::ControlType::kPosition);
-
-    //  frc::SmartDashboard::PutNumber("SetPoint", SetPoint);
-     frc::SmartDashboard::PutNumber("Right Encoder", rf_encoder.GetPosition());
-     frc::SmartDashboard::PutNumber("Left Encoder", -lf_encoder.GetPosition());
+    if (logicontroller.GetRawButtonPressed(1)) { 
+      ToggleGrabber(); 
+      }
 
    }
 
@@ -205,10 +197,10 @@ void WestCoastDrive() {
 
      rval= -r_stick.GetY();
      lval= l_stick.GetY();
-     if (rval<0.01 && rval>-0.01){
+     if (rval<0.05 && rval>-0.05){
        rval=0;
        }
-      if (lval<0.01 && lval>-0.01){
+      if (lval<0.05 && lval>-0.05){
        lval=0;
        }
 
@@ -216,6 +208,7 @@ void WestCoastDrive() {
      m_rr.Set(rval);
      m_lf.Set(lval);
      m_lr.Set(lval);
+
 
      if (r_stick.GetRawButton(1)) {
        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
@@ -235,10 +228,9 @@ void WestCoastDrive() {
    
  }
 
-//Function for Elevator
-//positive setPoint indicates upwards direction
   void Elevator() {
-    float setPoint=.1+floor(-logicontroller.GetRawAxis(3)*1000/1.5)/1000; 
+    //positive setPoint indicates upwards direction
+    float setPoint=.1+floor(-logicontroller.GetRawAxis(3)*1000)/1000; 
     //float setPoint=0.1;
 
     //limit switch value of 1 eqals open
@@ -247,9 +239,9 @@ void WestCoastDrive() {
     if (elevLimitBottom->Get() && setPoint < 0) {
      setPoint=0;
     }
-    if (elevLimitTop->Get() && setPoint > 0) {
-     setPoint=0;
-    }
+    /*if (elevLimitTop->Get() && setPoint > 0) {
+     setPoint=0.1;
+    }*/
     m_rightelevator->Set(setPoint);
     m_leftelevator->Set(-setPoint);
     frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
@@ -257,7 +249,7 @@ void WestCoastDrive() {
  }
 
  void Arm() {
-    float setPoint=-0.07+floor(logicontroller.GetRawAxis(1)/3*1000)/1000; 
+    float setPoint=-0.07+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
     //limit switch value of 1 eqals open
 
     frc::SmartDashboard::PutNumber("Arm Logic Controller", setPoint);
@@ -285,25 +277,32 @@ void WestCoastDrive() {
      }
  }
 
-//  void lifter() {
-
-//  }
- 
- 
-
-// The following functions are part of Zach's manual attempt at PID
+// The following functions are part of Zach's manual sucess at PID
   
-  double updatePID(double error){
-    double pTerm, dTerm, iTerm;
-    integratState += error;
-    pTerm=propGain*error;
-    iTerm=integratGain*integratState;
+  double updatePIDRight(double error){
+    double pTerm;
+    double iTerm;
+    integratStateRight += error;
+    pTerm=propGainRight*error;
+    iTerm=integratGainRight*integratStateRight;
+    return pTerm+iTerm;
+  }
+  double updatePIDLeft(double error){
+    double pTerm;
+    double iTerm;
+    integratStateLeft += error;
+    pTerm=propGainLeft*error;
+    iTerm=integratGainLeft*integratStateLeft;
     return pTerm+iTerm;
   }
 
-  };
+};
+
+
 
 
 #ifndef RUNNING_FRC_TESTS
-int main() { return frc::StartRobot<Robot>(); }
+int main() { 
+  return frc::StartRobot<Robot>();
+  }
 #endif

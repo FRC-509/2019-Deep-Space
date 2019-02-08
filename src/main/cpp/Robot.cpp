@@ -51,11 +51,17 @@ public:
 
 //Constructing motor controller objects (Talon SRX)
 //modified numbers
-  WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX(11);
-  WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{12};
-  WPI_TalonSRX * m_arm1 = new WPI_TalonSRX{2};
-  WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{3};
-  WPI_TalonSRX * m_intake = new WPI_TalonSRX{13};
+#define TALON_SRX_ELEVATOR_RIGHT 11
+#define TALON_SRX_ELEVATOR_LEFT 12
+#define TALON_SRX_ARM_1 2
+#define TALON_SRX_ARM_2 3
+#define TALON_SRX_INTAKE 13
+
+  WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
+  WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
+  WPI_TalonSRX * m_arm1 = new WPI_TalonSRX{ TALON_SRX_ARM_1 };
+  WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{ TALON_SRX_ARM_2 };
+  WPI_TalonSRX * m_intake = new WPI_TalonSRX{ TALON_SRX_INTAKE };
 
 // Contructing encoder object for elevator encoder  
   //Encoder * elevEncoder = new Encoder(0, 1, false, Encoder::EncodingType::k4X);
@@ -74,8 +80,11 @@ public:
   rev::CANEncoder rr_encoder = m_rr.GetEncoder();
 
   //ctre::phoenix::motorcontrol::QuadEncoder::CTRE_MagEncoder_Relative elevEncoder;
-  CANifier *elevEncoder = new CANifier(zero);
-  m_rightelevator->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 30);
+  CANifier *canElevEncoder = new CANifier(0);
+  int canDisplayCount = 0;
+  int canInit = 0;
+
+  
 
   frc::DigitalInput *elevLimitBottom = new frc::DigitalInput(zero);
   frc::DigitalInput *elevLimitTop = new frc::DigitalInput(1);
@@ -112,7 +121,7 @@ public:
       true;
     }
 
-
+     elevEncoderInit();
     
   //Setting SetClosedLoopControl to true turns the Compressor on 
      comp->SetClosedLoopControl(true);
@@ -135,7 +144,40 @@ public:
 
   }
 
+  void elevEncoderInit() {
+	  /* nonzero to block the config until success, zero to skip checking */
+	  const int kTimeoutMs = 30;
+		
+    /* Configure sensor on talon to check CANifier */
+		if (m_leftelevator->ConfigSelectedFeedbackSensor(
+      FeedbackDevice::CTRE_MagEncoder_Relative, 0, kTimeoutMs)) {
+      canInit |= 0x1 << 0;
+    }
+
+		/* Set sensor positions to some known position */
+		if (m_leftelevator->SetSelectedSensorPosition(33, 1, kTimeoutMs)) {
+      canInit |= 0x1 << 1;
+    }
+		
+    if (canElevEncoder->SetQuadraturePosition(33, kTimeoutMs)) {
+      canInit |= 0x1 << 2;
+    }
+
+		/* Configure velocity measurements to what we want */
+		if (canElevEncoder->ConfigVelocityMeasurementPeriod(
+      CANifierVelocityMeasPeriod::Period_100Ms, kTimeoutMs)) {
+      canInit |= 0x1 << 3;
+    }
+		
+    if (canElevEncoder->ConfigVelocityMeasurementWindow(64, kTimeoutMs)) {
+      canInit |= 0x1 << 4;
+    }
+
+    frc::SmartDashboard::PutNumber("canInit:", canInit);
+  }
+
   void TeleopPeriodic()  {
+
 
     //Counter to see how many times Teleop has gone through its loop
     static int i;
@@ -144,8 +186,7 @@ public:
 
 
     
-  
-//EXPERIMENT WITH LEFT REAR MOTOR
+
     actualRight=rf_encoder.GetVelocity();
     actualLeft=-lr_encoder.GetVelocity();
     frc::SmartDashboard::PutNumber("zero", -zero*zero);
@@ -188,6 +229,24 @@ public:
     if (logicontroller.GetRawButtonPressed(1)) { 
       ToggleGrabber(); 
       }
+
+    if(canDisplayCount++ % 20 == 0)
+		{
+			/* CANifier */
+			//std::cout << "CANifier:\tPosition: " << _can->GetQuadraturePosition() << "\tVelocity" << _can->GetQuadratureVelocity() <<
+			frc::SmartDashboard::PutNumber("CANifier Position: ", canElevEncoder->GetQuadraturePosition());
+      frc::SmartDashboard::PutNumber("CANifier Velocity", canElevEncoder->GetQuadratureVelocity()); 
+
+      /* TalonSRX */
+			//std::endl << "Talon:\t\t\tPosition: " << _tal->GetSelectedSensorPosition(0) <<"\tVelocity" << _tal->GetSelectedSensorVelocity(0)
+      frc::SmartDashboard::PutNumber("Talon Position: ", m_leftelevator->GetSelectedSensorPosition(1)); 
+      frc::SmartDashboard::PutNumber("Velocity", m_leftelevator->GetSelectedSensorVelocity(1));
+
+			/* New line to deliniate each loop */
+			//< std::endl << std::endl;
+		}
+		/* Run talon in PercentOutput mode always */
+		//_tal->Set(ControlMode::PercentOutput, _joy->GetY());
 
    }
 
@@ -245,6 +304,7 @@ void WestCoastDrive() {
     m_rightelevator->Set(setPoint);
     m_leftelevator->Set(-setPoint);
     frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
+    frc::SmartDashboard::PutNumber("elevLimitTop", (int) elevLimitTop->Get());
     
  }
 

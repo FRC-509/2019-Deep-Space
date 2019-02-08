@@ -89,8 +89,10 @@ public:
   frc::DigitalInput *elevLimitBottom = new frc::DigitalInput(zero);
   frc::DigitalInput *elevLimitTop = new frc::DigitalInput(1);
 
+
 //Arcade Drive object
   frc::DifferentialDrive m_arcadeDrive{m_lf, m_rf};
+
 
 //rval and lval are variables that will be used to store joystick values
   float rval= zero;
@@ -289,7 +291,17 @@ void WestCoastDrive() {
 
   void Elevator() {
     //positive setPoint indicates upwards direction
-    float setPoint=.1+floor(-logicontroller.GetRawAxis(3)*1000)/1000; 
+    float setPoint = .1+floor(-logicontroller.GetRawAxis(3)*1000/3)/1000;
+
+    /*if ((setPoint < 0)) {
+      setPoint=.1+floor(pow(-logicontroller.GetRawAxis(3),));
+    } else {
+      setPoint=.1+floor(-logicontroller.GetRawAxis(3));
+    }*/
+    
+    
+    //float setPoint=0.1+(-logicontroller.GetRawAxis(3));
+    
     //float setPoint=0.1;
 
     //limit switch value of 1 eqals open
@@ -298,9 +310,9 @@ void WestCoastDrive() {
     if (elevLimitBottom->Get() && setPoint < 0) {
      setPoint=0;
     }
-    /*if (elevLimitTop->Get() && setPoint > 0) {
+    if (elevLimitTop->Get() && setPoint > 0) {
      setPoint=0.1;
-    }*/
+    }
     m_rightelevator->Set(setPoint);
     m_leftelevator->Set(-setPoint);
     frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
@@ -317,11 +329,16 @@ void WestCoastDrive() {
     m_arm2->Set(setPoint);
 
     int i=0;
-    if (logicontroller.GetRawButton(6)){
-      i=1;
-    }
-    if (logicontroller.GetRawButton(5)){
-      i=-1;
+    //idiot proofing the intake: If both buttons are pressed it stops the intake
+    if (logicontroller.GetRawButton(5) && logicontroller.GetRawButton(6)){
+      i=0;
+    } else {
+      if (logicontroller.GetRawButton(6)){
+        i=-1;
+      }
+      if (logicontroller.GetRawButton(5)){
+        i=1;
+      }
     }
     m_intake->Set(i*0.75);
 

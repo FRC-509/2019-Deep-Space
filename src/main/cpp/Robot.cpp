@@ -56,12 +56,16 @@ public:
 #define TALON_SRX_ARM_1 2
 #define TALON_SRX_ARM_2 3
 #define TALON_SRX_INTAKE 13
+#define TALON_SRX_CLIMBER_1 4
+#define TALON_SRX_CLIMBER_2 5
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
   WPI_TalonSRX * m_arm1 = new WPI_TalonSRX{ TALON_SRX_ARM_1 };
   WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{ TALON_SRX_ARM_2 };
   WPI_TalonSRX * m_intake = new WPI_TalonSRX{ TALON_SRX_INTAKE };
+  WPI_TalonSRX * m_climber_1 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_1 };
+  WPI_TalonSRX * m_climber_2 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_2 };
 
 // Contructing encoder object for elevator encoder  
   //Encoder * elevEncoder = new Encoder(0, 1, false, Encoder::EncodingType::k4X);
@@ -80,7 +84,7 @@ public:
   rev::CANEncoder rr_encoder = m_rr.GetEncoder();
 
   //ctre::phoenix::motorcontrol::QuadEncoder::CTRE_MagEncoder_Relative elevEncoder;
-  CANifier *canElevEncoder = new CANifier(0);
+  /*CANifier *canElevEncoder = new CANifier(0);*/
   int canDisplayCount = 0;
   int canInit = 0;
 
@@ -157,15 +161,17 @@ public:
     }
 
 		/* Set sensor positions to some known position */
-		if (m_leftelevator->SetSelectedSensorPosition(33, 1, kTimeoutMs)) {
+		/*if (m_leftelevator->SetSelectedSensorPosition(33, 0, kTimeoutMs)) {
       canInit |= 0x1 << 1;
-    }
+    }*/
+
+
 		
-    if (canElevEncoder->SetQuadraturePosition(33, kTimeoutMs)) {
+    /*if (canElevEncoder->SetQuadraturePosition(33, kTimeoutMs)) {
       canInit |= 0x1 << 2;
     }
 
-		/* Configure velocity measurements to what we want */
+		// Configure velocity measurements to what we want
 		if (canElevEncoder->ConfigVelocityMeasurementPeriod(
       CANifierVelocityMeasPeriod::Period_100Ms, kTimeoutMs)) {
       canInit |= 0x1 << 3;
@@ -173,7 +179,7 @@ public:
 		
     if (canElevEncoder->ConfigVelocityMeasurementWindow(64, kTimeoutMs)) {
       canInit |= 0x1 << 4;
-    }
+    }*/
 
     frc::SmartDashboard::PutNumber("canInit:", canInit);
   }
@@ -231,25 +237,29 @@ public:
     if (logicontroller.GetRawButtonPressed(1)) { 
       ToggleGrabber(); 
       }
+    climber();
 
     if(canDisplayCount++ % 20 == 0)
 		{
 			/* CANifier */
 			//std::cout << "CANifier:\tPosition: " << _can->GetQuadraturePosition() << "\tVelocity" << _can->GetQuadratureVelocity() <<
-			frc::SmartDashboard::PutNumber("CANifier Position: ", canElevEncoder->GetQuadraturePosition());
-      frc::SmartDashboard::PutNumber("CANifier Velocity", canElevEncoder->GetQuadratureVelocity()); 
+			/*frc::SmartDashboard::PutNumber("CANifier Position: ", canElevEncoder->GetQuadraturePosition());
+      frc::SmartDashboard::PutNumber("CANifier Velocity", canElevEncoder->GetQuadratureVelocity()); */
 
       /* TalonSRX */
 			//std::endl << "Talon:\t\t\tPosition: " << _tal->GetSelectedSensorPosition(0) <<"\tVelocity" << _tal->GetSelectedSensorVelocity(0)
-      frc::SmartDashboard::PutNumber("Talon Position: ", m_leftelevator->GetSelectedSensorPosition(1)); 
-      frc::SmartDashboard::PutNumber("Velocity", m_leftelevator->GetSelectedSensorVelocity(1));
+      frc::SmartDashboard::PutNumber("Talon Position: ", m_leftelevator->GetSelectedSensorPosition(0)); 
+      frc::SmartDashboard::PutNumber("Talon Velocity", m_leftelevator->GetSelectedSensorVelocity(0));
+
+      //frc::SmartDashboard::PutNumber("New Talon SRX Position", (double) m_leftelevator->GetSensorCollection());
+    
 
 			/* New line to deliniate each loop */
 			//< std::endl << std::endl;
 		}
 		/* Run talon in PercentOutput mode always */
 		//_tal->Set(ControlMode::PercentOutput, _joy->GetY());
-
+\
    }
 
 
@@ -291,7 +301,7 @@ void WestCoastDrive() {
 
   void Elevator() {
     //positive setPoint indicates upwards direction
-    float setPoint = .1+floor(-logicontroller.GetRawAxis(3)*1000/3)/1000;
+    float setPoint = .1+floor(-logicontroller.GetRawAxis(3)*1000/2)/1000;
 
     /*if ((setPoint < 0)) {
       setPoint=.1+floor(pow(-logicontroller.GetRawAxis(3),));
@@ -340,7 +350,7 @@ void WestCoastDrive() {
         i=1;
       }
     }
-    m_intake->Set(i*0.75);
+    m_intake->Set(i);
 
  }
 
@@ -373,6 +383,31 @@ void WestCoastDrive() {
     return pTerm+iTerm;
   }
 
+  void climber() {
+    // Set to true to turn motors on permanently 
+    static bool dbgclimber = false;
+
+    if (dbgclimber) {
+      m_climber_1->Set(0.25);
+      m_climber_2->Set(0.25);
+    }
+
+    //Sets climber values
+    else if (r_stick.GetRawButton(3)) {
+      m_climber_1->Set(.25);
+      m_climber_2->Set(.25);
+    }
+    //Sets climber values
+    else if (r_stick.GetRawButton(2)) {
+      m_climber_1->Set(-.25);
+      m_climber_2->Set(-.25);
+    }
+    //if not pressed, stop motor
+    else {
+      m_climber_1->Set(0);
+      m_climber_2->Set(0);
+    }
+}
 };
 
 

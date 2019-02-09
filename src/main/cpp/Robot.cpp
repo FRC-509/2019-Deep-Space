@@ -84,9 +84,9 @@ public:
   rev::CANEncoder rr_encoder = m_rr.GetEncoder();
 
   //ctre::phoenix::motorcontrol::QuadEncoder::CTRE_MagEncoder_Relative elevEncoder;
-  /*CANifier *canElevEncoder = new CANifier(0);*/
+  // CANifier *canElevEncoder = new CANifier(0);
   int canDisplayCount = 0;
-  int canInit = 0;
+  int canInit = 0; 
 
   
 
@@ -127,7 +127,7 @@ public:
       true;
     }
 
-     elevEncoderInit();
+    elevEncoderInit();
     
   //Setting SetClosedLoopControl to true turns the Compressor on 
      comp->SetClosedLoopControl(true);
@@ -161,25 +161,25 @@ public:
     }
 
 		/* Set sensor positions to some known position */
-		/*if (m_leftelevator->SetSelectedSensorPosition(33, 0, kTimeoutMs)) {
+		if (m_leftelevator->SetSelectedSensorPosition(51, 0, kTimeoutMs)) {
       canInit |= 0x1 << 1;
-    }*/
+    }
 
 
 		
-    /*if (canElevEncoder->SetQuadraturePosition(33, kTimeoutMs)) {
-      canInit |= 0x1 << 2;
-    }
+    // if (canElevEncoder->SetQuadraturePosition(33, kTimeoutMs)) {
+    //   canInit |= 0x1 << 2;
+    // }
 
-		// Configure velocity measurements to what we want
-		if (canElevEncoder->ConfigVelocityMeasurementPeriod(
-      CANifierVelocityMeasPeriod::Period_100Ms, kTimeoutMs)) {
-      canInit |= 0x1 << 3;
-    }
+		// // Configure velocity measurements to what we want
+		// if (canElevEncoder->ConfigVelocityMeasurementPeriod(
+    //   CANifierVelocityMeasPeriod::Period_100Ms, kTimeoutMs)) {
+    //   canInit |= 0x1 << 3;
+    // }
 		
-    if (canElevEncoder->ConfigVelocityMeasurementWindow(64, kTimeoutMs)) {
-      canInit |= 0x1 << 4;
-    }*/
+    // if (canElevEncoder->ConfigVelocityMeasurementWindow(64, kTimeoutMs)) {
+    //   canInit |= 0x1 << 4;
+    // }
 
     frc::SmartDashboard::PutNumber("canInit:", canInit);
   }
@@ -243,8 +243,8 @@ public:
 		{
 			/* CANifier */
 			//std::cout << "CANifier:\tPosition: " << _can->GetQuadraturePosition() << "\tVelocity" << _can->GetQuadratureVelocity() <<
-			/*frc::SmartDashboard::PutNumber("CANifier Position: ", canElevEncoder->GetQuadraturePosition());
-      frc::SmartDashboard::PutNumber("CANifier Velocity", canElevEncoder->GetQuadratureVelocity()); */
+			// frc::SmartDashboard::PutNumber("CANifier Position: ", canElevEncoder->GetQuadraturePosition());
+      // frc::SmartDashboard::PutNumber("CANifier Velocity", canElevEncoder->GetQuadratureVelocity()); 
 
       /* TalonSRX */
 			//std::endl << "Talon:\t\t\tPosition: " << _tal->GetSelectedSensorPosition(0) <<"\tVelocity" << _tal->GetSelectedSensorVelocity(0)
@@ -253,13 +253,13 @@ public:
 
       //frc::SmartDashboard::PutNumber("New Talon SRX Position", (double) m_leftelevator->GetSensorCollection());
     
-
+      //m_leftelevator->Get
 			/* New line to deliniate each loop */
 			//< std::endl << std::endl;
 		}
 		/* Run talon in PercentOutput mode always */
 		//_tal->Set(ControlMode::PercentOutput, _joy->GetY());
-\
+
    }
 
 

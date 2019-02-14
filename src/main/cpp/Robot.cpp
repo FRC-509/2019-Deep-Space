@@ -59,6 +59,10 @@ public:
 #define TALON_SRX_CLIMBER_1 4
 #define TALON_SRX_CLIMBER_2 5
 
+#define ELEV_HEIGHT_LOW 5000
+#define ELEV_HEIGHT_MEDIUM 10500
+#define ELEV_HEIGHT_HIGH 13000
+
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
   WPI_TalonSRX * m_arm1 = new WPI_TalonSRX{ TALON_SRX_ARM_1 };
@@ -103,17 +107,18 @@ public:
   float lval= zero;
 
 //Zach's Far Superior PID Varriables
-  double integratStateRight=zero, integratStateLeft=zero, integratMax, integratMin;
-  double integratGainRight=0.000005, integratGainLeft=integratGainRight;
-  double propGainRight=0.0002, propGainLeft=propGainRight;
+  double integratStateRight=zero, integratStateLeft=zero, integratStateElev=zero;
+  double integratGainRight=0.000005, integratGainLeft=integratGainRight, integratGainElev=0; //0.000001
+  double propGainRight=0.0002, propGainLeft=propGainRight, propGainElev=0.0006;
   double averageVelocityRight = 0.0;
   double averageVelocityLeft = 0.0;
 
 //Some more of my PID Varriables
   double actualRight, actualLeft;
   float alfa;
-  double setPointRight, setPointLeft;
+  double setPointRight, setPointLeft, setPointElev;
   double fiftythree=53;
+
 
 //Is the grabber out or in?
   bool out;
@@ -153,6 +158,7 @@ public:
   void elevEncoderInit() {
 	  /* nonzero to block the config until success, zero to skip checking */
 	  const int kTimeoutMs = 30;
+    setPointElev = 5000;
 		
     /* Configure sensor on talon to check CANifier */
 		if (m_leftelevator->ConfigSelectedFeedbackSensor(
@@ -232,12 +238,52 @@ public:
       m_lf.Set(-MVLeft);
       m_lr.Set(-MVLeft);
 
+    // If "A" pressed, set elev to medium height
+    if (logicontroller.GetRawButtonPressed(2)) {
+       setPointElev = ELEV_HEIGHT_MEDIUM;
+    } 
+    frc::SmartDashboard::PutNumber("SetPointElev1", setPointElev);
+
+    
+    float joyVal3=-logicontroller.GetRawAxis(3);
+
+    /*if ( joyVal3 < -0.05 || joyVal3 > 0.05 ) {
+      //setPointElev = 1000*joyVal3 +  m_leftelevator->GetSelectedSensorPosition(0);
+      setPointElev = 1000*joyVal3 + setPointElev;
+    }*/
+    frc::SmartDashboard::PutNumber("SetPointElev2", setPointElev);
+
+    if (setPointElev>23000){
+      setPointElev=23000;
+      }
+
+    if (setPointElev<300){
+      setPointElev=3000;
+      }
+    frc::SmartDashboard::PutNumber("SetPointElev3", setPointElev);
+    
+
+    #ifdef ELEV_PID 
+    double errorElev = setPointElev - m_leftelevator->GetSelectedSensorPosition(0);
+    double MVElev = updatePIDElev(errorElev);
+    m_rightelevator->Set(MVElev/2);
+    m_leftelevator->Set(-MVElev/2);
+    #else
     Elevator();
+    #endif
+
+    //Elevator();
     Arm();
     if (logicontroller.GetRawButtonPressed(1)) { 
       ToggleGrabber(); 
       }
     climber();
+    if (r_stick.GetRawButton(1)) {
+       shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
+     } else {
+
+       shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
+     }
 
     if(canDisplayCount++ % 20 == 0)
 		{
@@ -301,8 +347,10 @@ void WestCoastDrive() {
 
   void Elevator() {
     //positive setPoint indicates upwards direction
-    float setPoint = .1+floor(-logicontroller.GetRawAxis(3)*1000/2)/1000;
+    float setPoint = .12+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
 
+
+    
     /*if ((setPoint < 0)) {
       setPoint=.1+floor(pow(-logicontroller.GetRawAxis(3),));
     } else {
@@ -318,7 +366,7 @@ void WestCoastDrive() {
     frc::SmartDashboard::PutNumber("logicontroller", setPoint);
 
     if (elevLimitBottom->Get() && setPoint < 0) {
-     setPoint=0;
+     setPoint=0.1;
     }
     if (elevLimitTop->Get() && setPoint > 0) {
      setPoint=0.1;
@@ -380,6 +428,23 @@ void WestCoastDrive() {
     integratStateLeft += error;
     pTerm=propGainLeft*error;
     iTerm=integratGainLeft*integratStateLeft;
+    return pTerm+iTerm;
+  }
+  double updatePIDElev(double error){
+    double pTerm;
+    double iTerm;
+    
+    pTerm=propGainElev*error;
+
+    // if (integratStateElev>10000){
+    //   integratStateElev=10000;
+    // }
+    // if (integratStateElev<-10000){
+    //   integratStateElev=-10000;
+    // }
+    integratStateElev += error;
+    iTerm=integratGainElev*integratStateElev;
+    
     return pTerm+iTerm;
   }
 

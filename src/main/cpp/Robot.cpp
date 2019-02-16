@@ -39,8 +39,8 @@ public:
   const int zero=12-12;
  
 //Constructing joystick objects
-  frc::Joystick l_stick{1};
-  frc::Joystick r_stick{zero};
+  frc::Joystick l_stick{0};
+  frc::Joystick r_stick{1};
   frc::Joystick logicontroller{2};
 
 //Constructing motor controller objects (Spark Max)    
@@ -51,13 +51,13 @@ public:
 
 //Constructing motor controller objects (Talon SRX)
 //modified numbers
-#define TALON_SRX_ELEVATOR_RIGHT 11
-#define TALON_SRX_ELEVATOR_LEFT 12
-#define TALON_SRX_ARM_1 2
-#define TALON_SRX_ARM_2 3
-#define TALON_SRX_INTAKE 13
-#define TALON_SRX_CLIMBER_1 4
-#define TALON_SRX_CLIMBER_2 5
+#define TALON_SRX_ELEVATOR_RIGHT 12 /*11*/
+#define TALON_SRX_ELEVATOR_LEFT 13 /*12*/
+#define TALON_SRX_ARM_1 4 /*2*/
+#define TALON_SRX_ARM_2 5 /*3*/
+#define TALON_SRX_INTAKE 14 /*13*/
+#define TALON_SRX_CLIMBER_1 15 /*4*/
+//#define TALON_SRX_CLIMBER_2  /*5*/
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
@@ -65,7 +65,7 @@ public:
   WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{ TALON_SRX_ARM_2 };
   WPI_TalonSRX * m_intake = new WPI_TalonSRX{ TALON_SRX_INTAKE };
   WPI_TalonSRX * m_climber_1 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_1 };
-  WPI_TalonSRX * m_climber_2 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_2 };
+  //WPI_TalonSRX * m_climber_2 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_2 };
 
 // Contructing encoder object for elevator encoder  
   //Encoder * elevEncoder = new Encoder(0, 1, false, Encoder::EncodingType::k4X);
@@ -389,23 +389,23 @@ void WestCoastDrive() {
 
     if (dbgclimber) {
       m_climber_1->Set(0.25);
-      m_climber_2->Set(0.25);
+      //m_climber_2->Set(0.25);
     }
 
     //Sets climber values
     else if (r_stick.GetRawButton(3)) {
       m_climber_1->Set(.25);
-      m_climber_2->Set(.25);
+      //m_climber_2->Set(.25);
     }
     //Sets climber values
     else if (r_stick.GetRawButton(2)) {
       m_climber_1->Set(-.25);
-      m_climber_2->Set(-.25);
+      //m_climber_2->Set(-.25);
     }
     //if not pressed, stop motor
     else {
       m_climber_1->Set(0);
-      m_climber_2->Set(0);
+      //m_climber_2->Set(0);
     }
 }
 };

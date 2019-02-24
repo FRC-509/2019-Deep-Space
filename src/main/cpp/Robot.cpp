@@ -24,7 +24,6 @@
 #include <networktables/NetworkTable.h>
 #include <networktables/NetworkTableEntry.h>
 #include <networktables/NetworkTableInstance.h>
-#include "GripPipeline.h"
 #include <vision/VisionRunner.h>
 #include <iostream>
 
@@ -39,8 +38,8 @@ public:
   const int zero=12-12;
  
 //Constructing joystick objects
+  frc::Joystick r_stick{0};
   frc::Joystick l_stick{1};
-  frc::Joystick r_stick{zero};
   frc::Joystick logicontroller{2};
 
 //Constructing motor controller objects (Spark Max)    
@@ -51,13 +50,13 @@ public:
 
 //Constructing motor controller objects (Talon SRX)
 //modified numbers
-#define TALON_SRX_ELEVATOR_RIGHT 11
-#define TALON_SRX_ELEVATOR_LEFT 12
-#define TALON_SRX_ARM_1 2
-#define TALON_SRX_ARM_2 3
-#define TALON_SRX_INTAKE 13
-#define TALON_SRX_CLIMBER_1 4
-#define TALON_SRX_CLIMBER_2 5
+#define TALON_SRX_ELEVATOR_RIGHT 12 /*11*/
+#define TALON_SRX_ELEVATOR_LEFT 13 /*12*/
+#define TALON_SRX_ARM_1 4 /*2*/
+#define TALON_SRX_ARM_2 5 /*3*/
+#define TALON_SRX_INTAKE 14 /*13*/
+#define TALON_SRX_CLIMBER_1 15 /*4*/
+//#define TALON_SRX_CLIMBER_2  /*5*/
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
@@ -65,7 +64,7 @@ public:
   WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{ TALON_SRX_ARM_2 };
   WPI_TalonSRX * m_intake = new WPI_TalonSRX{ TALON_SRX_INTAKE };
   WPI_TalonSRX * m_climber_1 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_1 };
-  WPI_TalonSRX * m_climber_2 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_2 };
+  //WPI_TalonSRX * m_climber_2 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_2 };
 
 // Contructing encoder object for elevator encoder  
   //Encoder * elevEncoder = new Encoder(0, 1, false, Encoder::EncodingType::k4X);
@@ -74,8 +73,8 @@ public:
   frc::Compressor *comp = new frc::Compressor(zero);
 
 //Construct Double Solenoid object
-  frc::DoubleSolenoid panelSol {zero, 1};
-  frc::DoubleSolenoid shiftSol {2, 3}; //was 4,5 previously 
+  frc::DoubleSolenoid panelSol {0, 1};
+  frc::DoubleSolenoid shiftSol {2, 3}; //2 is low gear
 
 //Setting encoder to corresponding motors
   rev::CANEncoder rf_encoder = m_rf.GetEncoder();
@@ -117,11 +116,13 @@ public:
 
 //Is the grabber out or in?
   bool out;
+  bool out2;
 
   void RobotInit() {
     // Setting the grabber so that the piston is in and changing the value of bool out to reflect that
     panelSol.Set(frc::DoubleSolenoid::Value::kReverse);
     out=zero;
+    out2=zero;
 
     if (!1){
       true;
@@ -142,10 +143,10 @@ public:
 
     // TODO: Setup this runner to run it its own thread
     // Uses a lambda function -- Check these out. Newer C++ 11 feature.
-     new frc::VisionRunner<grip::GripPipeline>(ipCamera, new grip::GripPipeline(), [&](grip::GripPipeline &pipeline) {
-      // This code is called each time the pipeline completes. Process the results of the pipeline here
+    //  new frc::VisionRunner<grip::GripPipeline>(ipCamera, new grip::GripPipeline(), [&](grip::GripPipeline &pipeline) {
+    //   // This code is called each time the pipeline completes. Process the results of the pipeline here
       
-     });
+    //  });
     
 
   }
@@ -232,11 +233,22 @@ public:
       m_lf.Set(-MVLeft);
       m_lr.Set(-MVLeft);
 
+    if (r_stick.GetRawButtonPressed(1)) { 
+      ToggleShifter(); 
+      }
+
     Elevator();
     Arm();
     if (logicontroller.GetRawButtonPressed(1)) { 
       ToggleGrabber(); 
       }
+
+      /*if (logicontroller.GetRawButton(1)) {
+        shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
+      } else {
+        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
+      }*/
+
     climber();
 
     if(canDisplayCount++ % 20 == 0)
@@ -281,11 +293,11 @@ void WestCoastDrive() {
      m_lr.Set(lval);
 
 
-     if (r_stick.GetRawButton(1)) {
+     /*if (r_stick.GetRawButton(1)) {
        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
-     } else {
+     } /*else {
        shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
-     }
+     }*/
  }
 
 //Function for Arcade Drive
@@ -320,9 +332,9 @@ void WestCoastDrive() {
     if (elevLimitBottom->Get() && setPoint < 0) {
      setPoint=0;
     }
-    if (elevLimitTop->Get() && setPoint > 0) {
+    /*if (elevLimitTop->Get() && setPoint > 0) {
      setPoint=0.1;
-    }
+    }*/
     m_rightelevator->Set(setPoint);
     m_leftelevator->Set(-setPoint);
     frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
@@ -364,6 +376,16 @@ void WestCoastDrive() {
      }
  }
 
+  void ToggleShifter() {
+     if (out2){
+        shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
+        out2=0;
+     }else{
+        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
+        out2=1;
+     }
+ }
+
 // The following functions are part of Zach's manual sucess at PID
   
   double updatePIDRight(double error){
@@ -389,23 +411,23 @@ void WestCoastDrive() {
 
     if (dbgclimber) {
       m_climber_1->Set(0.25);
-      m_climber_2->Set(0.25);
+      //m_climber_2->Set(0.25);
     }
 
     //Sets climber values
     else if (r_stick.GetRawButton(3)) {
       m_climber_1->Set(.25);
-      m_climber_2->Set(.25);
+      //m_climber_2->Set(.25);
     }
     //Sets climber values
     else if (r_stick.GetRawButton(2)) {
       m_climber_1->Set(-.25);
-      m_climber_2->Set(-.25);
+      //m_climber_2->Set(-.25);
     }
     //if not pressed, stop motor
     else {
       m_climber_1->Set(0);
-      m_climber_2->Set(0);
+      //m_climber_2->Set(0);
     }
 }
 };

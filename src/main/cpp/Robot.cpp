@@ -24,6 +24,7 @@
 #include <networktables/NetworkTable.h>
 #include <networktables/NetworkTableEntry.h>
 #include <networktables/NetworkTableInstance.h>
+#include "GripPipeline.h"
 #include <vision/VisionRunner.h>
 #include <iostream>
 
@@ -35,28 +36,82 @@ class Robot : public frc::TimedRobot {
 
 public:
 //Can't use the number zero so this replaces it. 
-  const int zero=12-12;
- 
-//Constructing joystick objects
-  frc::Joystick r_stick{0};
-  frc::Joystick l_stick{1};
-  frc::Joystick logicontroller{2};
+  #define COMP_ROBOT
+  #ifdef COMP_ROBOT
+    #define RIGHT_STICK 0
+    #define LEFT_STICK 1
+    #define CONTROLLER 2
 
-//Constructing motor controller objects (Spark Max)    
-  rev::CANSparkMax m_lr{zero, rev::CANSparkMax::MotorType::kBrushless};
-  rev::CANSparkMax m_lf{1, rev::CANSparkMax::MotorType::kBrushless};
-  rev::CANSparkMax m_rr{2, rev::CANSparkMax::MotorType::kBrushless};
-  rev::CANSparkMax m_rf{3, rev::CANSparkMax::MotorType::kBrushless};
+    //Constructing motor controller objects (Spark Max)
+    #define SPARK_MAX_LEFT_REAR 4
+    #define SPARK_MAX_LEFT_FRONT 1
+    #define SPARK_MAX_RIGHT_REAR 2
+    #define SPARK_MAX_RIGHT_FRONT 3
+
+    #define TALON_SRX_ELEVATOR_RIGHT 12
+    #define TALON_SRX_ELEVATOR_LEFT 13
+    #define TALON_SRX_ARM_1 4
+    #define TALON_SRX_ARM_2 5
+    #define TALON_SRX_INTAKE 14
+    #define TALON_SRX_CLIMBER_1 15
+  
+  #else
+    #define RIGHT_STICK 0
+    #define LEFT_STICK 1
+    #define CONTROLLER 2
+
+    //Constructing motor controller objects (Spark Max)
+    #define SPARK_MAX_LEFT_REAR 0
+    #define SPARK_MAX_LEFT_FRONT 1
+    #define SPARK_MAX_RIGHT_REAR 2
+    #define SPARK_MAX_RIGHT_FRONT 3
+
+    #define TALON_SRX_ELEVATOR_RIGHT 11
+    #define TALON_SRX_ELEVATOR_LEFT 12
+    #define TALON_SRX_ARM_1 2
+    #define TALON_SRX_ARM_2 3
+    #define TALON_SRX_INTAKE 13
+    #define TALON_SRX_CLIMBER_1 4
+    //#define TALON_SRX_CLIMBER_2 5
+
+  #endif
+
+
+  const int zero=12-12;
+
+//Constructing joystick objects
+
+  
+  frc::Joystick r_stick{ RIGHT_STICK };
+  frc::Joystick l_stick{ LEFT_STICK };
+  frc::Joystick logicontroller{ CONTROLLER };
+
+//Constructing motor controller objects (Spark Max)
+
+  rev::CANSparkMax m_lr{ SPARK_MAX_LEFT_REAR , rev::CANSparkMax::MotorType::kBrushless};
+  rev::CANSparkMax m_lf{ SPARK_MAX_LEFT_FRONT , rev::CANSparkMax::MotorType::kBrushless};
+  rev::CANSparkMax m_rr{ SPARK_MAX_RIGHT_REAR , rev::CANSparkMax::MotorType::kBrushless};
+  rev::CANSparkMax m_rf{ SPARK_MAX_RIGHT_FRONT , rev::CANSparkMax::MotorType::kBrushless};
 
 //Constructing motor controller objects (Talon SRX)
 //modified numbers
-#define TALON_SRX_ELEVATOR_RIGHT 12 /*11*/
-#define TALON_SRX_ELEVATOR_LEFT 13 /*12*/
-#define TALON_SRX_ARM_1 4 /*2*/
-#define TALON_SRX_ARM_2 5 /*3*/
-#define TALON_SRX_INTAKE 14 /*13*/
-#define TALON_SRX_CLIMBER_1 15 /*4*/
-//#define TALON_SRX_CLIMBER_2  /*5*/
+
+
+#define ELEV_HEIGHT_LOW 5000
+#define ELEV_HEIGHT_MEDIUM 10500
+#define ELEV_HEIGHT_HIGH 13000
+
+//Sets heights in encoder counts that need to be reached for each slot on the rocket. 
+#define ELEV_SPEED 100
+#define DISK_ONE_HEIGHT 830
+#define DISK_TWO_HEIGHT 13480
+#define DISK_THREE_HEIGHT 22000
+
+//Sets climber values
+#define CLIMBER_SPEED 0.5
+
+
+
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
@@ -64,17 +119,16 @@ public:
   WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{ TALON_SRX_ARM_2 };
   WPI_TalonSRX * m_intake = new WPI_TalonSRX{ TALON_SRX_INTAKE };
   WPI_TalonSRX * m_climber_1 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_1 };
-  //WPI_TalonSRX * m_climber_2 = new WPI_TalonSRX{ TALON_SRX_CLIMBER_2 };
 
 // Contructing encoder object for elevator encoder  
   //Encoder * elevEncoder = new Encoder(0, 1, false, Encoder::EncodingType::k4X);
 
 //Instantiating the compressor
-  frc::Compressor *comp = new frc::Compressor(zero);
+  frc::Compressor *comp = new frc::Compressor(0);
 
 //Construct Double Solenoid object
   frc::DoubleSolenoid panelSol {0, 1};
-  frc::DoubleSolenoid shiftSol {2, 3}; //2 is low gear
+  frc::DoubleSolenoid shiftSol {2, 3}; //was 4,5 previously 
 
 //Setting encoder to corresponding motors
   rev::CANEncoder rf_encoder = m_rf.GetEncoder();
@@ -89,7 +143,7 @@ public:
 
   
 
-  frc::DigitalInput *elevLimitBottom = new frc::DigitalInput(zero);
+  frc::DigitalInput *elevLimitBottom = new frc::DigitalInput(0);
   frc::DigitalInput *elevLimitTop = new frc::DigitalInput(1);
 
 
@@ -98,31 +152,34 @@ public:
 
 
 //rval and lval are variables that will be used to store joystick values
-  float rval= zero;
-  float lval= zero;
+  float rval= 0;
+  float lval= 0;
 
 //Zach's Far Superior PID Varriables
-  double integratStateRight=zero, integratStateLeft=zero, integratMax, integratMin;
-  double integratGainRight=0.000005, integratGainLeft=integratGainRight;
-  double propGainRight=0.0002, propGainLeft=propGainRight;
+  double integratStateRight=0, integratStateLeft=0, integratStateElev=0;
+  double integratGainRight=0.000005, integratGainLeft=integratGainRight, integratGainElev=0.000001;//0.0000001;
+  double propGainRight=0.0002, propGainLeft=propGainRight, propGainElev=0.00038;
   double averageVelocityRight = 0.0;
   double averageVelocityLeft = 0.0;
+  int currentElevLevel=1;
 
 //Some more of my PID Varriables
   double actualRight, actualLeft;
   float alfa;
-  double setPointRight, setPointLeft;
+  double setPointRight, setPointLeft, setPointElev;
+  double setSetPointElev;
   double fiftythree=53;
+  int itwoc = 0;
+  bool climbActivated=false;
+
 
 //Is the grabber out or in?
   bool out;
-  bool out2;
 
   void RobotInit() {
     // Setting the grabber so that the piston is in and changing the value of bool out to reflect that
     panelSol.Set(frc::DoubleSolenoid::Value::kReverse);
-    out=zero;
-    out2=zero;
+    out=0;
 
     if (!1){
       true;
@@ -130,6 +187,7 @@ public:
 
     elevEncoderInit();
     
+
   //Setting SetClosedLoopControl to true turns the Compressor on 
      comp->SetClosedLoopControl(true);
      
@@ -143,10 +201,10 @@ public:
 
     // TODO: Setup this runner to run it its own thread
     // Uses a lambda function -- Check these out. Newer C++ 11 feature.
-    //  new frc::VisionRunner<grip::GripPipeline>(ipCamera, new grip::GripPipeline(), [&](grip::GripPipeline &pipeline) {
-    //   // This code is called each time the pipeline completes. Process the results of the pipeline here
+     new frc::VisionRunner<grip::GripPipeline>(ipCamera, new grip::GripPipeline(), [&](grip::GripPipeline &pipeline) {
+      // This code is called each time the pipeline completes. Process the results of the pipeline here
       
-    //  });
+     });
     
 
   }
@@ -154,15 +212,16 @@ public:
   void elevEncoderInit() {
 	  /* nonzero to block the config until success, zero to skip checking */
 	  const int kTimeoutMs = 30;
+    //setPointElev = 5000;
 		
     /* Configure sensor on talon to check CANifier */
-		if (m_leftelevator->ConfigSelectedFeedbackSensor(
+		if (m_rightelevator->ConfigSelectedFeedbackSensor(
       FeedbackDevice::CTRE_MagEncoder_Relative, 0, kTimeoutMs)) {
       canInit |= 0x1 << 0;
     }
 
 		/* Set sensor positions to some known position */
-		if (m_leftelevator->SetSelectedSensorPosition(51, 0, kTimeoutMs)) {
+		if (m_rightelevator->SetSelectedSensorPosition(51, 0, kTimeoutMs)) {
       canInit |= 0x1 << 1;
     }
 
@@ -183,6 +242,16 @@ public:
     // }
 
     frc::SmartDashboard::PutNumber("canInit:", canInit);
+    //m_rightelevator->SetSelectedSensorPosition(0, 0, 50); 
+  }
+  
+  void AutonomousPeriodic() {
+    TeleopPeriodic();
+  }
+
+  void TeleopInit() {
+    setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
   }
 
   void TeleopPeriodic()  {
@@ -198,7 +267,6 @@ public:
 
     actualRight=rf_encoder.GetVelocity();
     actualLeft=-lr_encoder.GetVelocity();
-    frc::SmartDashboard::PutNumber("zero", -zero*zero);
     frc::SmartDashboard::PutNumber("Actual Right 3.56", rf_encoder.GetVelocity());
     frc::SmartDashboard::PutNumber("Actual Left 3.56", lr_encoder.GetVelocity());
 
@@ -218,10 +286,10 @@ public:
     setPointRight=-5000*pow(r_stick.GetY(),3);
     setPointLeft=-5000*pow(l_stick.GetY(),3);
     if (setPointLeft<50 && setPointLeft>-50){
-      setPointLeft=zero;
+      setPointLeft=0;
     }
     if (setPointRight<50 && setPointRight>-50){
-      setPointRight=zero;
+      setPointRight=0;
     }
 
     double errorRight=setPointRight-averageVelocityRight;
@@ -233,23 +301,87 @@ public:
       m_lf.Set(-MVLeft);
       m_lr.Set(-MVLeft);
 
-    if (r_stick.GetRawButtonPressed(1)) { 
-      ToggleShifter(); 
+    // If "A" pressed, set elev to medium height
+    // if (logicontroller.GetRawButtonPressed(4)) {
+    //   if (currentElevLevel=1){
+    //     setPointElev = DISK_TWO_HEIGHT;
+    //     currentElevLevel=2;
+    //   } else {
+    //     setPointElev = DISK_THREE_HEIGHT;
+    //     currentElevLevel=3;
+    //   }
+       
+    // } 
+    if (logicontroller.GetRawButtonPressed(2)) {
+         setPointElev = DISK_ONE_HEIGHT;
+    } 
+    if (logicontroller.GetRawButtonPressed(3)) {
+         setPointElev = DISK_TWO_HEIGHT;
+    } 
+    if (logicontroller.GetRawButtonPressed(4)) {
+         setPointElev = DISK_THREE_HEIGHT;
+    } 
+    frc::SmartDashboard::PutNumber("SetPointElev1", setPointElev);
+
+    
+    float joyVal3=-logicontroller.GetRawAxis(3);
+    //setPointElev = 5000;
+
+    if ( joyVal3 < -0.05 || joyVal3 > 0.05 ) {
+      //setPointElev = 1000*joyVal3 +  m_leftelevator->GetSelectedSensorPosition(0);
+      if (joyVal3>0) {
+        setPointElev = 100*joyVal3 + setPointElev;
+      } else {
+        setPointElev = 100*pow(joyVal3, 3) + setPointElev;
+      }
+      
+    }
+    frc::SmartDashboard::PutNumber("SetPointElev2", setPointElev);
+
+    if (setPointElev>23000){
+      setPointElev=23000;
       }
 
+    if (setPointElev<300){
+      setPointElev=300;
+      }
+    frc::SmartDashboard::PutNumber("SetPointElev3", setPointElev);
+    if (setSetPointElev != setPointElev){
+      if (setSetPointElev<setPointElev+ELEV_SPEED && setSetPointElev>setPointElev-ELEV_SPEED){
+        setSetPointElev=setPointElev;
+      }
+      if (setPointElev>setSetPointElev){
+        setSetPointElev += ELEV_SPEED;
+      } else {
+        setSetPointElev -= ELEV_SPEED;
+      }
+
+
+    }
+    
+    //#define ELEV_PID
+
+    #ifdef ELEV_PID
+    double errorElev = setSetPointElev - m_rightelevator->GetSelectedSensorPosition(0);
+    double MVElev = updatePIDElev(errorElev);
+    m_rightelevator->Set(MVElev/2);
+    m_leftelevator->Set(-MVElev/2);
+    #else
     Elevator();
+    #endif
+
+    //Elevator();
     Arm();
     if (logicontroller.GetRawButtonPressed(1)) { 
       ToggleGrabber(); 
       }
-
-      /*if (logicontroller.GetRawButton(1)) {
-        shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
-      } else {
-        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
-      }*/
-
     climber();
+    if (r_stick.GetRawButton(1)) {
+       shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
+     } else {
+
+       shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
+     }
 
     if(canDisplayCount++ % 20 == 0)
 		{
@@ -260,8 +392,8 @@ public:
 
       /* TalonSRX */
 			//std::endl << "Talon:\t\t\tPosition: " << _tal->GetSelectedSensorPosition(0) <<"\tVelocity" << _tal->GetSelectedSensorVelocity(0)
-      frc::SmartDashboard::PutNumber("Talon Position: ", m_leftelevator->GetSelectedSensorPosition(0)); 
-      frc::SmartDashboard::PutNumber("Talon Velocity", m_leftelevator->GetSelectedSensorVelocity(0));
+      frc::SmartDashboard::PutNumber("Talon Position: ", m_rightelevator->GetSelectedSensorPosition(0)); 
+      frc::SmartDashboard::PutNumber("Talon Velocity", m_rightelevator->GetSelectedSensorVelocity(0));
 
       //frc::SmartDashboard::PutNumber("New Talon SRX Position", (double) m_leftelevator->GetSensorCollection());
     
@@ -271,7 +403,29 @@ public:
 		}
 		/* Run talon in PercentOutput mode always */
 		//_tal->Set(ControlMode::PercentOutput, _joy->GetY());
+    #define EXPLOSION_BEGIN 1
+    #ifdef EXPLOSION_BEGIN
+        if (logicontroller.GetRawButtonPressed(9)){
+          itwoc=0;
+          climbActivated=true;
+        }
+        if (logicontroller.GetRawButtonPressed(10)) {
+          itwoc = 0;
+          climbActivated = false;
+        }
+        if (climbActivated){
+          itwoc++;
+          if (itwoc < 3*50){
+            m_rightelevator->Set(-0.3);
+            m_leftelevator->Set(0.3);
+          }
+          if (itwoc>50 && itwoc < 3*50){
+            m_climber_1->Set( -CLIMBER_SPEED );
 
+          }
+        }
+
+    #endif
    }
 
 
@@ -293,11 +447,11 @@ void WestCoastDrive() {
      m_lr.Set(lval);
 
 
-     /*if (r_stick.GetRawButton(1)) {
+     if (r_stick.GetRawButton(1)) {
        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
-     } /*else {
+     } else {
        shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
-     }*/
+     }
  }
 
 //Function for Arcade Drive
@@ -313,8 +467,10 @@ void WestCoastDrive() {
 
   void Elevator() {
     //positive setPoint indicates upwards direction
-    float setPoint = .1+floor(-logicontroller.GetRawAxis(3)*1000/2)/1000;
+    float setPoint = .12+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
 
+
+    
     /*if ((setPoint < 0)) {
       setPoint=.1+floor(pow(-logicontroller.GetRawAxis(3),));
     } else {
@@ -330,13 +486,13 @@ void WestCoastDrive() {
     frc::SmartDashboard::PutNumber("logicontroller", setPoint);
 
     if (elevLimitBottom->Get() && setPoint < 0) {
-     setPoint=0;
+     setPoint=0.1;
     }
     /*if (elevLimitTop->Get() && setPoint > 0) {
      setPoint=0.1;
     }*/
-    m_rightelevator->Set(setPoint);
-    m_leftelevator->Set(-setPoint);
+    m_rightelevator->Set((setPoint/2000)*1000);
+    m_leftelevator->Set((-setPoint/2000)*1000);
     frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
     frc::SmartDashboard::PutNumber("elevLimitTop", (int) elevLimitTop->Get());
     
@@ -376,16 +532,6 @@ void WestCoastDrive() {
      }
  }
 
-  void ToggleShifter() {
-     if (out2){
-        shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
-        out2=0;
-     }else{
-        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
-        out2=1;
-     }
- }
-
 // The following functions are part of Zach's manual sucess at PID
   
   double updatePIDRight(double error){
@@ -404,6 +550,23 @@ void WestCoastDrive() {
     iTerm=integratGainLeft*integratStateLeft;
     return pTerm+iTerm;
   }
+  double updatePIDElev(double error){
+    double pTerm;
+    double iTerm;
+    
+    pTerm=propGainElev*error;
+
+    // if (integratStateElev>10000){
+    //   integratStateElev=10000;
+    // }
+    // if (integratStateElev<-10000){
+    //   integratStateElev=-10000;
+    // }
+    integratStateElev += error;
+    iTerm=integratGainElev*integratStateElev;
+    
+    return pTerm+iTerm;
+  }
 
   void climber() {
     // Set to true to turn motors on permanently 
@@ -411,23 +574,19 @@ void WestCoastDrive() {
 
     if (dbgclimber) {
       m_climber_1->Set(0.25);
-      //m_climber_2->Set(0.25);
     }
 
-    //Sets climber values
+    
     else if (r_stick.GetRawButton(3)) {
-      m_climber_1->Set(.25);
-      //m_climber_2->Set(.25);
+      m_climber_1->Set( CLIMBER_SPEED );
     }
     //Sets climber values
     else if (r_stick.GetRawButton(2)) {
-      m_climber_1->Set(-.25);
-      //m_climber_2->Set(-.25);
+      m_climber_1->Set( -CLIMBER_SPEED );
     }
     //if not pressed, stop motor
     else {
       m_climber_1->Set(0);
-      //m_climber_2->Set(0);
     }
 }
 };

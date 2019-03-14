@@ -28,8 +28,16 @@
 #include <vision/VisionRunner.h>
 #include <iostream>
 
-
-//VERY IMPORTANT DO NOT REMOVE
+//#define CLIMB_MODE_NORMAL 1
+//#define 
+class ClimbMode 
+{
+  public:
+    bool currentMode; //current mode. True for normal.
+    bool elevPIDOn;
+    bool drivePIDOn;
+    bool ArmSpeedNormal;
+};
 
 
 class Robot : public frc::TimedRobot {
@@ -76,9 +84,6 @@ public:
 
   #endif
 
-
-  const int zero=12-12;
-
 //Constructing joystick objects
 
   
@@ -102,10 +107,13 @@ public:
 #define ELEV_HEIGHT_HIGH 13000
 
 //Sets heights in encoder counts that need to be reached for each slot on the rocket. 
-#define ELEV_SPEED 100
+#define ELEV_SPEED 250
 #define DISK_ONE_HEIGHT 830
 #define DISK_TWO_HEIGHT 13480
 #define DISK_THREE_HEIGHT 22000
+#define BALL_DISPLACEMENT 5680
+bool isBall=0;
+
 
 //Sets climber values
 #define CLIMBER_SPEED 0.5
@@ -163,7 +171,7 @@ public:
   double averageVelocityLeft = 0.0;
   int currentElevLevel=1;
 
-//Some more of my PID Varriables
+//Some more of my PID Variables
   double actualRight, actualLeft;
   float alfa;
   double setPointRight, setPointLeft, setPointElev;
@@ -171,42 +179,37 @@ public:
   double fiftythree=53;
   int itwoc = 0;
   bool climbActivated=false;
-
+  float leftDistInitial;
 
 //Is the grabber out or in?
   bool out;
+
+
+//String for ball or panel mode. Isn't used right now.
+  std::string gameMode;
+
+  
+    //Climb mode class
+    ClimbMode climbMode = {false, false, false, false};
+
+    double errorElev;
+    double MVElev;
 
   void RobotInit() {
     // Setting the grabber so that the piston is in and changing the value of bool out to reflect that
     panelSol.Set(frc::DoubleSolenoid::Value::kReverse);
     out=0;
-
-    if (!1){
-      true;
-    }
-
+    
     elevEncoderInit();
     
-
   //Setting SetClosedLoopControl to true turns the Compressor on 
      comp->SetClosedLoopControl(true);
      
      //Adding camera using IP address
-     cs::AxisCamera ipCamera = frc::CameraServer::GetInstance()->AddAxisCamera("10.5.9.53");
+     //cs::AxisCamera ipCamera = frc::CameraServer::GetInstance()->AddAxisCamera("10.5.9.53");
 
      cs::UsbCamera usbcamera = frc::CameraServer::GetInstance()->StartAutomaticCapture();
      
-     //Start auto capture of images to send to dashboard
-     //frc::CameraServer::GetInstance()->StartAutomaticCapture();
-
-    // TODO: Setup this runner to run it its own thread
-    // Uses a lambda function -- Check these out. Newer C++ 11 feature.
-     new frc::VisionRunner<grip::GripPipeline>(ipCamera, new grip::GripPipeline(), [&](grip::GripPipeline &pipeline) {
-      // This code is called each time the pipeline completes. Process the results of the pipeline here
-      
-     });
-    
-
   }
 
   void elevEncoderInit() {
@@ -244,6 +247,10 @@ public:
     frc::SmartDashboard::PutNumber("canInit:", canInit);
     //m_rightelevator->SetSelectedSensorPosition(0, 0, 50); 
   }
+
+  void AutonomousInit() {
+    TeleopInit();
+  }
   
   void AutonomousPeriodic() {
     TeleopPeriodic();
@@ -252,6 +259,8 @@ public:
   void TeleopInit() {
     setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
     setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    climbMode = {true, false, false, false};
+
   }
 
   void TeleopPeriodic()  {
@@ -274,7 +283,6 @@ public:
     alfa=0.05;
     averageVelocityRight=alfa*actualRight+(1-alfa)*averageVelocityRight;
     averageVelocityLeft=alfa*actualLeft+(1-alfa)*averageVelocityLeft;
-    double twelve=12;
     
 
     frc::SmartDashboard::PutNumber("AverageVelocity Left 3.56",averageVelocityLeft);
@@ -291,16 +299,23 @@ public:
     if (setPointRight<50 && setPointRight>-50){
       setPointRight=0;
     }
-
+    
     double errorRight=setPointRight-averageVelocityRight;
     double errorLeft=setPointLeft-averageVelocityLeft;
     double MVRight=updatePIDRight(errorRight);
     double MVLeft=updatePIDLeft(errorLeft);
+
+
+    if (climbMode.drivePIDOn) {
       m_rf.Set(MVRight);
       m_rr.Set(MVRight);
       m_lf.Set(-MVLeft);
       m_lr.Set(-MVLeft);
+    } else {
+      WestCoastDrive();
+    }
 
+ 
     // If "A" pressed, set elev to medium height
     // if (logicontroller.GetRawButtonPressed(4)) {
     //   if (currentElevLevel=1){
@@ -311,99 +326,100 @@ public:
     //     currentElevLevel=3;
     //   }
        
-    // } 
-    if (logicontroller.GetRawButtonPressed(2)) {
-         setPointElev = DISK_ONE_HEIGHT;
-    } 
-    if (logicontroller.GetRawButtonPressed(3)) {
-         setPointElev = DISK_TWO_HEIGHT;
-    } 
-    if (logicontroller.GetRawButtonPressed(4)) {
-         setPointElev = DISK_THREE_HEIGHT;
-    } 
-    frc::SmartDashboard::PutNumber("SetPointElev1", setPointElev);
+    // }
 
-    
-    float joyVal3=-logicontroller.GetRawAxis(3);
-    //setPointElev = 5000;
+    if (climbMode.elevPIDOn) {
+      errorElev = setSetPointElev - m_rightelevator->GetSelectedSensorPosition(0);
+      MVElev = updatePIDElev(errorElev);
+      m_rightelevator->Set(MVElev/2);
+      m_leftelevator->Set(-MVElev/2);
+      if (logicontroller.GetRawButtonPressed(1)) {
+          isBall = !isBall;
+      } 
+      if (logicontroller.GetRawButtonPressed(2)) {
+          setPointElev = DISK_ONE_HEIGHT+isBall*BALL_DISPLACEMENT;
+      } 
+      if (logicontroller.GetRawButtonPressed(3)) {
+          setPointElev = DISK_TWO_HEIGHT+isBall*BALL_DISPLACEMENT;
+      } 
+      if (logicontroller.GetRawButtonPressed(4)) {
+          setPointElev = DISK_THREE_HEIGHT;
+      } 
+      frc::SmartDashboard::PutNumber("SetPointElev1", setPointElev);
 
-    if ( joyVal3 < -0.05 || joyVal3 > 0.05 ) {
-      //setPointElev = 1000*joyVal3 +  m_leftelevator->GetSelectedSensorPosition(0);
-      if (joyVal3>0) {
-        setPointElev = 100*joyVal3 + setPointElev;
+      if (isBall) {
+        gameMode = "Cargo";
       } else {
-        setPointElev = 100*pow(joyVal3, 3) + setPointElev;
+        gameMode = "Panel";
       }
+
+      frc::SmartDashboard::PutString("Panel or Cargo", gameMode);
+      frc::SmartDashboard::PutNumber("Panel or Cargo2", isBall);
+
       
+      float joyVal3=-logicontroller.GetRawAxis(3);
+      //setPointElev = 5000;
+
+      if ( joyVal3 < -0.05 || joyVal3 > 0.05 ) {
+        //setPointElev = 1000*joyVal3 +  m_leftelevator->GetSelectedSensorPosition(0);
+        if (joyVal3>0) {
+          setPointElev = 100*joyVal3 + setPointElev;
+        } else {
+          setPointElev = 100*pow(joyVal3, 3) + setPointElev;
+        }
+        
+      }
+      frc::SmartDashboard::PutNumber("SetPointElev2", setPointElev);
+
+      if (setPointElev>23000){
+        setPointElev=23000;
+        }
+
+      if (setPointElev<300){
+        setPointElev=300;
+        }
+      frc::SmartDashboard::PutNumber("SetPointElev3", setPointElev);
+      if (setSetPointElev != setPointElev){
+        if (setSetPointElev<setPointElev+100 && setSetPointElev>setPointElev-100){
+          setSetPointElev=setPointElev;
+        }
+        if (setPointElev>setSetPointElev){
+          setSetPointElev += ELEV_SPEED;
+        } else {
+          setSetPointElev -= ELEV_SPEED;
+        }
+      }
+    } else {
+      Elevator();
     }
-    frc::SmartDashboard::PutNumber("SetPointElev2", setPointElev);
 
-    if (setPointElev>23000){
-      setPointElev=23000;
-      }
-
-    if (setPointElev<300){
-      setPointElev=300;
-      }
-    frc::SmartDashboard::PutNumber("SetPointElev3", setPointElev);
-    if (setSetPointElev != setPointElev){
-      if (setSetPointElev<setPointElev+ELEV_SPEED && setSetPointElev>setPointElev-ELEV_SPEED){
-        setSetPointElev=setPointElev;
-      }
-      if (setPointElev>setSetPointElev){
-        setSetPointElev += ELEV_SPEED;
-      } else {
-        setSetPointElev -= ELEV_SPEED;
-      }
-
-
-    }
-    
-    //#define ELEV_PID
-
-    #ifdef ELEV_PID
-    double errorElev = setSetPointElev - m_rightelevator->GetSelectedSensorPosition(0);
-    double MVElev = updatePIDElev(errorElev);
-    m_rightelevator->Set(MVElev/2);
-    m_leftelevator->Set(-MVElev/2);
-    #else
-    Elevator();
-    #endif
-
-    //Elevator();
     Arm();
-    if (logicontroller.GetRawButtonPressed(1)) { 
+    if (logicontroller.GetRawButtonPressed(10)) { 
       ToggleGrabber(); 
       }
-    climber();
+
+    climber();    
+    
     if (r_stick.GetRawButton(1)) {
        shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
      } else {
-
        shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
      }
 
     if(canDisplayCount++ % 20 == 0)
 		{
-			/* CANifier */
-			//std::cout << "CANifier:\tPosition: " << _can->GetQuadraturePosition() << "\tVelocity" << _can->GetQuadratureVelocity() <<
-			// frc::SmartDashboard::PutNumber("CANifier Position: ", canElevEncoder->GetQuadraturePosition());
-      // frc::SmartDashboard::PutNumber("CANifier Velocity", canElevEncoder->GetQuadratureVelocity()); 
-
-      /* TalonSRX */
-			//std::endl << "Talon:\t\t\tPosition: " << _tal->GetSelectedSensorPosition(0) <<"\tVelocity" << _tal->GetSelectedSensorVelocity(0)
       frc::SmartDashboard::PutNumber("Talon Position: ", m_rightelevator->GetSelectedSensorPosition(0)); 
       frc::SmartDashboard::PutNumber("Talon Velocity", m_rightelevator->GetSelectedSensorVelocity(0));
-
-      //frc::SmartDashboard::PutNumber("New Talon SRX Position", (double) m_leftelevator->GetSensorCollection());
-    
-      //m_leftelevator->Get
-			/* New line to deliniate each loop */
-			//< std::endl << std::endl;
 		}
+
 		/* Run talon in PercentOutput mode always */
 		//_tal->Set(ControlMode::PercentOutput, _joy->GetY());
-    #define EXPLOSION_BEGIN 1
+
+    if (l_stick.GetRawButtonPressed(2)) {
+      switchClimbMode();
+    }
+
+    //#define EXPLOSION_BEGIN 1
     #ifdef EXPLOSION_BEGIN
         if (logicontroller.GetRawButtonPressed(9)){
           itwoc=0;
@@ -426,6 +442,7 @@ public:
         }
 
     #endif
+
    }
 
 
@@ -499,7 +516,16 @@ void WestCoastDrive() {
  }
 
  void Arm() {
-    float setPoint=-0.07+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
+    #define ARM_SPEED_FACTOR_LOW    0.25
+    #define ARM_SPEED_FACTOR_NORMAL 1.0
+    int armSpeedFactor;
+
+    if (climbMode.ArmSpeedNormal) {
+      armSpeedFactor = ARM_SPEED_FACTOR_NORMAL;
+    } else {
+      armSpeedFactor = ARM_SPEED_FACTOR_LOW;
+    }
+    float setPoint=-0.07+floor(logicontroller.GetRawAxis(1) * armSpeedFactor *1000)/1000; 
     //limit switch value of 1 eqals open
 
     frc::SmartDashboard::PutNumber("Arm Logic Controller", setPoint);
@@ -567,6 +593,15 @@ void WestCoastDrive() {
     
     return pTerm+iTerm;
   }
+  double moveADistance(float distance){
+    float leftDistNow=-lr_encoder.GetPosition();
+
+    if (leftDistNow-leftDistInitial<distance){
+      setPointRight=500;
+      setPointLeft=500;
+    }
+
+  }
 
   void climber() {
     // Set to true to turn motors on permanently 
@@ -589,6 +624,21 @@ void WestCoastDrive() {
       m_climber_1->Set(0);
     }
 }
+
+    void switchClimbMode() {
+ 
+      if (climbMode.currentMode) {
+        //Switch to climb mode
+        climbMode.elevPIDOn = false;
+        climbMode.drivePIDOn = false;
+        climbMode.ArmSpeedNormal = false; 
+      } else {
+        //Switch to normal mode
+        climbMode.elevPIDOn = true;
+        climbMode.drivePIDOn = true;
+        climbMode.ArmSpeedNormal = true;
+      }
+    }
 };
 
 

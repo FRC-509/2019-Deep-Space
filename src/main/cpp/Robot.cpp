@@ -196,10 +196,7 @@ bool isBall=0;
     double MVElev;
 
   void RobotInit() {
-    // Setting the grabber so that the piston is in and changing the value of bool out to reflect that
-    panelSol.Set(frc::DoubleSolenoid::Value::kReverse);
-    out=0;
-    
+
     elevEncoderInit();
     
   //Setting SetClosedLoopControl to true turns the Compressor on 
@@ -249,6 +246,9 @@ bool isBall=0;
   }
 
   void AutonomousInit() {
+    // Setting the grabber so that the piston is in and changing the value of bool out to reflect that
+    panelSol.Set(frc::DoubleSolenoid::Value::kForward);
+    out=1;
     TeleopInit();
   }
   
@@ -257,9 +257,11 @@ bool isBall=0;
   }
 
   void TeleopInit() {
+    
+    
     setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
     setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
-    climbMode = {true, false, false, false};
+    climbMode = {true, true, true, true};
 
   }
 
@@ -419,6 +421,17 @@ bool isBall=0;
       switchClimbMode();
     }
 
+    //     bool currentMode; //current mode. True for normal.
+    // bool elevPIDOn;
+    // bool drivePIDOn;
+    // bool ArmSpeedNormal;
+
+    frc::SmartDashboard::PutBoolean("currentMode", climbMode.currentMode );
+    frc::SmartDashboard::PutBoolean("drivePIDOn", climbMode.drivePIDOn );
+    frc::SmartDashboard::PutBoolean("elevPIDOn", climbMode.elevPIDOn );
+    frc::SmartDashboard::PutBoolean("ArmSpeedNormal", climbMode.ArmSpeedNormal );
+    
+
     //#define EXPLOSION_BEGIN 1
     #ifdef EXPLOSION_BEGIN
         if (logicontroller.GetRawButtonPressed(9)){
@@ -458,10 +471,10 @@ void WestCoastDrive() {
        lval=0;
        }
 
-     m_rf.Set(rval);
-     m_rr.Set(rval);
-     m_lf.Set(lval);
-     m_lr.Set(lval);
+     m_rf.Set(rval/1.5);
+     m_rr.Set(rval/1.5);
+     m_lf.Set(lval/1.5);
+     m_lr.Set(lval/1.5);
 
 
      if (r_stick.GetRawButton(1)) {
@@ -518,7 +531,7 @@ void WestCoastDrive() {
  void Arm() {
     #define ARM_SPEED_FACTOR_LOW    0.25
     #define ARM_SPEED_FACTOR_NORMAL 1.0
-    int armSpeedFactor;
+    float armSpeedFactor;
 
     if (climbMode.ArmSpeedNormal) {
       armSpeedFactor = ARM_SPEED_FACTOR_NORMAL;
@@ -626,17 +639,20 @@ void WestCoastDrive() {
 }
 
     void switchClimbMode() {
+      static int switchChangeCount = 0;
  
       if (climbMode.currentMode) {
         //Switch to climb mode
         climbMode.elevPIDOn = false;
         climbMode.drivePIDOn = false;
         climbMode.ArmSpeedNormal = false; 
+        climbMode.currentMode = false;
       } else {
         //Switch to normal mode
         climbMode.elevPIDOn = true;
         climbMode.drivePIDOn = true;
         climbMode.ArmSpeedNormal = true;
+        climbMode.currentMode = true;
       }
     }
 };

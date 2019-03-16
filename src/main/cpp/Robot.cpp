@@ -194,6 +194,8 @@ bool isBall=0;
     panelSol.Set(frc::DoubleSolenoid::Value::kForward);
     //changing the value of bool out to reflect that
     out=1;
+    setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
   }
   
   void AutonomousPeriodic() {
@@ -202,11 +204,11 @@ bool isBall=0;
 
   void TeleopInit() {
     // Setting the grabber so that the piston is out
-    panelSol.Set(frc::DoubleSolenoid::Value::kForward);
-    //changing the value of bool out to reflect that
-    out=1;
-    setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
-    setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    // panelSol.Set(frc::DoubleSolenoid::Value::kForward);
+    // //changing the value of bool out to reflect that
+    // out=1;
+    // setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    // setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
   }
 
   void TeleopPeriodic()  {
@@ -510,6 +512,7 @@ void WestCoastDrive() {
         panelSol.Set(frc::DoubleSolenoid::Value::kForward);
         out=1;
      }
+     frc::SmartDashboard::PutString("Hatch Panel Grabber", (out ? "Open": "Close"));
  }
 
 // The following functions are part of Zach's manual sucess at PID

@@ -1,9 +1,9 @@
-/*---------------------------------------------------------------------------------*/
-/* Copyright (c) 2017-2018 Zach. All Rights Revoked.                               */
-/* Closed Source Software - mayn't be modified and shared by anyone teams. The code*/
-/* mustn't be accompanied by the FIRST BSD license file in the branch directory of */
-/* the project.                                                                    */
-/*---------------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------*/
+/* Copyright (c) 2017-2018 FIRST. All Rights Reserved.                        */
+/* Open Source Software - may be modified and shared by FRC teams. The code   */
+/* must be accompanied by the FIRST BSD license file in the root directory of */
+/* the project.                                                               */
+/*----------------------------------------------------------------------------*/
 
 #include <frc/Joystick.h>
 #include <frc/WPILib.h>
@@ -18,10 +18,6 @@
 #include <cameraserver/CameraServer.h>
 #include <vision/VisionRunner.h>
 #include <iostream>
-
-
-//VERY IMPORTANT DO NOT REMOVE
-
 
 class Robot : public frc::TimedRobot {
 
@@ -67,11 +63,7 @@ public:
 
   #endif
 
-
-  const int zero=12-12;
-
 //Constructing joystick objects
-
   
   frc::Joystick r_stick{ RIGHT_STICK };
   frc::Joystick l_stick{ LEFT_STICK };
@@ -87,7 +79,6 @@ public:
 //Constructing motor controller objects (Talon SRX)
 //modified numbers
 
-
 #define ELEV_HEIGHT_LOW 5000
 #define ELEV_HEIGHT_MEDIUM 10500
 #define ELEV_HEIGHT_HIGH 13000
@@ -98,14 +89,11 @@ public:
 #define DISK_TWO_HEIGHT 13480
 #define DISK_THREE_HEIGHT 22000
 #define BALL_DISPLACEMENT 5680
-bool isBall=0;
 
+bool isBall=0;
 
 //Sets climber values
 #define CLIMBER_SPEED 0.5
-
-
-
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
@@ -135,15 +123,11 @@ bool isBall=0;
   int canDisplayCount = 0;
   int canInit = 0; 
 
-  
-
   frc::DigitalInput *elevLimitBottom = new frc::DigitalInput(0);
   frc::DigitalInput *elevLimitTop = new frc::DigitalInput(1);
 
-
 //Arcade Drive object
   frc::DifferentialDrive m_arcadeDrive{m_lf, m_rf};
-
 
 //rval and lval are variables that will be used to store joystick values
   float rval= 0;
@@ -167,35 +151,22 @@ bool isBall=0;
   bool climbActivated=false;
   float leftDistInitial;
 
-
 //Is the grabber out or in?
   bool out;
 
-//
+//String display what mode the robot is currently in. As of right not, does not work.
   std::string gameMode;
 
   void RobotInit() {
-    // Setting the grabber so that the piston is in and changing the value of bool out to reflect that
-    panelSol.Set(frc::DoubleSolenoid::Value::kReverse);
-    out=0;
-
-    if (!1){
-      true;
-    }
-
-    elevEncoderInit();
     
+    elevEncoderInit();
 
-  //Setting SetClosedLoopControl to true turns the Compressor on 
+     //Setting SetClosedLoopControl to true turns the Compressor on 
      comp->SetClosedLoopControl(true);
      
      //Adding camera using IP address
      cs::AxisCamera ipCamera = frc::CameraServer::GetInstance()->AddAxisCamera("10.5.9.53");
-
      cs::UsbCamera usbcamera = frc::CameraServer::GetInstance()->StartAutomaticCapture();
-     
-
-
   }
 
   void elevEncoderInit() {
@@ -214,24 +185,17 @@ bool isBall=0;
       canInit |= 0x1 << 1;
     }
 
-
-    
-    // if (canElevEncoder->SetQuadraturePosition(33, kTimeoutMs)) {
-    //   canInit |= 0x1 << 2;
-    // }
-
-    // // Configure velocity measurements to what we want
-    // if (canElevEncoder->ConfigVelocityMeasurementPeriod(
-    //   CANifierVelocityMeasPeriod::Period_100Ms, kTimeoutMs)) {
-    //   canInit |= 0x1 << 3;
-    // }
-    
-    // if (canElevEncoder->ConfigVelocityMeasurementWindow(64, kTimeoutMs)) {
-    //   canInit |= 0x1 << 4;
-    // }
-
     frc::SmartDashboard::PutNumber("canInit:", canInit);
     //m_rightelevator->SetSelectedSensorPosition(0, 0, 50); 
+  }
+
+  void AutonomousInit() {
+    // Setting the grabber so that the piston is out
+    panelSol.Set(frc::DoubleSolenoid::Value::kForward);
+    //changing the value of bool out to reflect that
+    out=1;
+    setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
   }
   
   void AutonomousPeriodic() {
@@ -239,8 +203,12 @@ bool isBall=0;
   }
 
   void TeleopInit() {
-    setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
-    setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    // Setting the grabber so that the piston is out
+    // panelSol.Set(frc::DoubleSolenoid::Value::kForward);
+    // //changing the value of bool out to reflect that
+    // out=1;
+    // setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    // setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
   }
 
   void TeleopPeriodic()  {
@@ -513,7 +481,7 @@ void WestCoastDrive() {
  }
 
  void Arm() {
-    float setPoint=-0.07+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
+    float setPoint=-0.05+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
     //limit switch value of 1 eqals open
 
     frc::SmartDashboard::PutNumber("Arm Logic Controller", setPoint);
@@ -544,6 +512,7 @@ void WestCoastDrive() {
         panelSol.Set(frc::DoubleSolenoid::Value::kForward);
         out=1;
      }
+     frc::SmartDashboard::PutString("Hatch Panel Grabber", (out ? "Open": "Close"));
  }
 
 // The following functions are part of Zach's manual sucess at PID

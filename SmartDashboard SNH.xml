@@ -1,0 +1,92 @@
+<xml version="1.0">
+<dashboard>
+	<widget field="Hatch Panel Grabber" type="String" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="144" y="301"/>
+		<property name="Background" value="255.0.0.255"/>
+	</widget>
+	<widget field="ArmSpeedNormal" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="498" y="171"/>
+	</widget>
+	<widget field="elevPIDOn" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="532" y="136"/>
+	</widget>
+	<widget field="drivePIDOn" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="524" y="100"/>
+	</widget>
+	<widget field="currentMode" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="516" y="51"/>
+	</widget>
+	<widget field="Panel or Cargo2" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="-12" y="62"/>
+	</widget>
+	<widget field="Panel or Cargo" type="String" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="163" y="344"/>
+		<width>190</width>
+		<height>20</height>
+		<property name="Background" value="102.255.255.255"/>
+	</widget>
+	<widget field="Talon Position: " type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="1008" y="60"/>
+	</widget>
+	<widget field="SetPointElev3" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="1012" y="175"/>
+	</widget>
+	<widget field="SetPointElev2" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="1008" y="146"/>
+	</widget>
+	<widget field="SetPointElev1" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="1014" y="107"/>
+		<height>20</height>
+	</widget>
+	<static-widget class="edu.wpi.first.smartdashboard.gui.elements.CameraServerViewer">
+		<location x="687" y="46"/>
+		<width>316</width>
+		<height>411</height>
+		<property name="Degrees Rotation" value="90"/>
+		<property name="Camera Choice" value="USB Camera 0"/>
+	</static-widget>
+	<widget field="Auto Selector" type="String" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="0" y="37"/>
+	</widget>
+	<static-widget class="edu.wpi.first.smartdashboard.gui.elements.ConnectionIndicator">
+		<location x="174" y="222"/>
+		<width>53</width>
+		<height>49</height>
+	</static-widget>
+	<widget field="Talon Velocity" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="1012" y="30"/>
+	</widget>
+	<widget field="canInit:" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="168" y="10"/>
+	</widget>
+	<widget field="CANifier Velocity" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="494" y="17"/>
+	</widget>
+	<widget field="CANifier Position: " type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="138" y="106"/>
+	</widget>
+	<widget field="zero" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="196" y="75"/>
+	</widget>
+	<widget field="logicontroller" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="536" y="198"/>
+	</widget>
+	<widget field="Distance: " type="Number" class="edu.wpi.first.smartdashboard.gui.elements.ProgressBar">
+		<location x="324" y="7"/>
+	</widget>
+	<widget field="driveMode" type="Boolean" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="181" y="46"/>
+	</widget>
+	<widget field="Velocity" type="Number" class="edu.wpi.first.smartdashboard.gui.elements.TextBox">
+		<location x="22" y="7"/>
+	</widget>
+</dashboard>
+<live-window>
+</live-window>
+	<hidden field="Actual Right 3.56"/>
+	<hidden field="teleocount"/>
+	<hidden field="Arm Logic Controller"/>
+	<hidden field="AverageVelocity Right 3.56"/>
+	<hidden field="Actual Left 3.56"/>
+	<hidden field="AverageVelocity Left 3.56"/>
+</xml>

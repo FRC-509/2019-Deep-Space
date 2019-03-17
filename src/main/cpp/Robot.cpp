@@ -41,6 +41,7 @@ public:
     #define TALON_SRX_ARM_2 5
     #define TALON_SRX_INTAKE 14
     #define TALON_SRX_CLIMBER_1 15
+    //#define BACK_SLOWLY_SPEED 100
   
   #else
     #define RIGHT_STICK 0
@@ -91,6 +92,10 @@ public:
 #define BALL_DISPLACEMENT 5680
 
 bool isBall=0;
+
+#ifdef BACK_SLOWLY_SPEED
+  bool backSlowly=false;
+#endif
 
 //Sets climber values
 #define CLIMBER_SPEED 0.5
@@ -240,16 +245,31 @@ bool isBall=0;
     // if(1||actual==0.0){}
     //   else{averageVelocity = actual;}
 
-    setPointRight=-5000*pow(r_stick.GetY(),3);
-    setPointLeft=-5000*pow(l_stick.GetY(),3);
+    setPointRight=-5000*pow(r_stick.GetY()*0.75,3);
+    setPointLeft=-5000*pow(l_stick.GetY()*0.75,3);
     if (setPointLeft<50 && setPointLeft>-50){
       setPointLeft=0;
     }
     if (setPointRight<50 && setPointRight>-50){
       setPointRight=0;
     }
+    #ifdef BACK_SLOWLY_SPEED
+    if(l_stick.GetRawButtonPressed(3)){
+      backSlowly= !backSlowly;
+      }
+    if(backSlowly){
+      setPointLeft=-BACK_SLOWLY_SPEED;
+      setPointRight=-BACK_SLOWLY_SPEED;
+      }
+    
+    frc::SmartDashboard::PutString("Back slowly", (backSlowly ? "yes": "no"));
 
-    #define DRIVE_PID
+
+
+    #endif
+    
+
+    //#define DRIVE_PID
     #ifdef DRIVE_PID
 
     double errorRight=setPointRight-averageVelocityRight;
@@ -277,10 +297,9 @@ bool isBall=0;
     //   }
        
     // }
-
     
     
-    #define ELEV_PID
+    //#define ELEV_PID
 
     #ifdef ELEV_PID
     double errorElev = setSetPointElev - m_rightelevator->GetSelectedSensorPosition(0);
@@ -358,12 +377,12 @@ bool isBall=0;
     climber();
     
     
-    if (r_stick.GetRawButton(1)) {
-       shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
-     } else {
+    // if (r_stick.GetRawButton(1)) {
+    //    shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
+    //  } else {
 
-       shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
-     }
+    //    shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
+    //  }
 
     if(canDisplayCount++ % 20 == 0)
     {
@@ -481,7 +500,10 @@ void WestCoastDrive() {
  }
 
  void Arm() {
-    float setPoint=-0.05+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
+    // float setPoint=-0.05+floor(logicontroller.GetRawAxis(1)*1000)/1000;
+    float setPoint=-0.035+floor(logicontroller.GetRawAxis(1)*1000)/1000;
+    //Arm drops slowly when horizontal with 0.015
+    // float setPoint=-0.015+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
     //limit switch value of 1 eqals open
 
     frc::SmartDashboard::PutNumber("Arm Logic Controller", setPoint);

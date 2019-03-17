@@ -9,6 +9,7 @@
 #include <frc/WPILib.h>
 #include <rev/CANSparkMax.h>
 #include <frc/PWMTalonSRX.h>
+//#include <TalonSRX.h>
 #include <frc/Compressor.h>
 #include <frc/TimedRobot.h>
 #include <frc/RobotDrive.h>
@@ -22,7 +23,6 @@
 class Robot : public frc::TimedRobot {
 
 public:
-//Can't use the number zero so this replaces it. 
   #define COMP_ROBOT
   #ifdef COMP_ROBOT
     #define RIGHT_STICK 0
@@ -64,13 +64,16 @@ public:
 
   #endif
 
+  #define MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS 10
+  // other motor max amp values should go above this line.
+
 //Constructing joystick objects
   
   frc::Joystick r_stick{ RIGHT_STICK };
   frc::Joystick l_stick{ LEFT_STICK };
   frc::Joystick logicontroller{ CONTROLLER };
 
-//Constructing motor controller objects (Spark Max)
+//Constructing drive train motor controller objects (Spark Max)
 
   rev::CANSparkMax m_lr{ SPARK_MAX_LEFT_REAR , rev::CANSparkMax::MotorType::kBrushless};
   rev::CANSparkMax m_lf{ SPARK_MAX_LEFT_FRONT , rev::CANSparkMax::MotorType::kBrushless};
@@ -101,7 +104,7 @@ bool isBall=0;
 #define CLIMBER_SPEED 0.5
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
-  WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
+  WPI_TalonSRX * m_leftelevator =  new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
   WPI_TalonSRX * m_arm1 = new WPI_TalonSRX{ TALON_SRX_ARM_1 };
   WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{ TALON_SRX_ARM_2 };
   WPI_TalonSRX * m_intake = new WPI_TalonSRX{ TALON_SRX_INTAKE };
@@ -199,8 +202,29 @@ bool isBall=0;
     panelSol.Set(frc::DoubleSolenoid::Value::kForward);
     //changing the value of bool out to reflect that
     out=1;
+    ElevatorInit();
+  }
+
+/*-------------------------------------------------------------------------*/
+/* ElevatorInit()
+   See the following document for API usage.  In simple case, you may set 
+   PeakCurrentLimit to 0.
+http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1motorcontrol_1_1can_1_1_talon_s_r_x.html
+*/
+
+  void ElevatorInit() {
     setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
-    setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    setPointElev   = m_rightelevator->GetSelectedSensorPosition(0);
+
+    // Right elevator
+    m_rightelevator->EnableCurrentLimit( true );
+    m_rightelevator->ConfigContinuousCurrentLimit( MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS, 15);
+    m_rightelevator->ConfigPeakCurrentLimit( 0, 15 );
+    // not needed: m_rightelevator->ConfigPeakCurrentDuration( )
+    // Left elevator
+    m_leftelevator->EnableCurrentLimit( true );
+    m_leftelevator->ConfigContinuousCurrentLimit( MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS, 15);
+    m_leftelevator->ConfigPeakCurrentLimit( 0, 15 );
   }
   
   void AutonomousPeriodic() {
@@ -368,6 +392,10 @@ bool isBall=0;
     Elevator();
     #endif
 
+    canDisplayCount++;
+    if( canDisplayCount % (5*50) == 0 ) // every 5 seconds
+      ElevatorDisplay();
+
     Arm();
     if (logicontroller.GetRawButtonPressed(10)) { 
       ToggleGrabber(); 
@@ -384,7 +412,7 @@ bool isBall=0;
     //    shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
     //  }
 
-    if(canDisplayCount++ % 20 == 0)
+    if(canDisplayCount % 20 == 0)
     {
       /* CANifier */
       //std::cout << "CANifier:\tPosition: " << _can->GetQuadraturePosition() << "\tVelocity" << _can->GetQuadratureVelocity() <<
@@ -429,6 +457,20 @@ bool isBall=0;
     #endif
    }
 
+/*--------------------------------------------------------------------------*/
+void ElevatorDisplay()
+{
+  TalonSRXConfiguration allConfigs; 
+  m_rightelevator->GetAllConfigs( allConfigs );
+
+  std::string disp = allConfigs.toString();
+
+  frc::SmartDashboard::PutString("right elev config", disp);
+  //frc::SmartDashboard::PutNumber("right elev PID", (double) allConfigs.primaryPID);
+  frc::SmartDashboard::PutNumber("right elev continuousCurrentLimit", (double) allConfigs.continuousCurrentLimit);
+  frc::SmartDashboard::PutNumber("right elev peakCurrentLimit", (double) allConfigs.peakCurrentLimit);
+  frc::SmartDashboard::PutNumber("right elev peakCurrentDuration", (double) allConfigs.peakCurrentDuration);  
+}
 
 //WestCoast Drive Function 
 void WestCoastDrive() {

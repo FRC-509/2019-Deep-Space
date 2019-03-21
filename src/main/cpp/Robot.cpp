@@ -64,7 +64,11 @@ public:
 
   #endif
 
-  #define MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS 10
+  //At 20 amps, elev goes from lowest point to highest point in 2.5 seconds
+  //At 15 amps, elev goes from lowest point to highest point in 2.5 seconds
+  //At 10 amps, elev goes from lowest point to highest point in 3.0 seconds
+  //At 30 amps, elev goes from lowest point to highest point in 1.9 seconds
+  #define MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS 30
   // other motor max amp values should go above this line.
 
 //Constructing joystick objects
@@ -101,7 +105,9 @@ bool isBall=0;
 #endif
 
 //Sets climber values
-#define CLIMBER_SPEED 0.5
+// #define CLIMBER_SPEED 0.5
+//Changed on sunday 3/17/19
+#define CLIMBER_SPEED 0.4
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator =  new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
@@ -484,10 +490,12 @@ void WestCoastDrive() {
        lval=0;
        }
 
-     m_rf.Set(rval);
-     m_rr.Set(rval);
-     m_lf.Set(lval);
-     m_lr.Set(lval);
+    double WEST_COAST_SPEED = 1.0;
+
+     m_rf.Set(rval * WEST_COAST_SPEED );
+     m_rr.Set(rval * WEST_COAST_SPEED );
+     m_lf.Set(lval * WEST_COAST_SPEED );
+     m_lr.Set(lval * WEST_COAST_SPEED );
 
 
      if (r_stick.GetRawButton(1)) {

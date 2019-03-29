@@ -15,7 +15,7 @@
 #include <frc/RobotDrive.h>
 #include <frc/WPILib.h>
 #include <ctre/Phoenix.h>
-#include <frc/Encoder.h>
+#include <frc/Encoder.h> 
 #include <cameraserver/CameraServer.h>
 #include <vision/VisionRunner.h>
 #include <iostream>
@@ -69,6 +69,7 @@ public:
   //At 10 amps, elev goes from lowest point to highest point in 3.0 seconds
   //At 30 amps, elev goes from lowest point to highest point in 1.9 seconds
   #define MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS 30
+  #define MOTOR_ARM_CONTINUOUS_AMPS 32
   // other motor max amp values should go above this line.
 
 //Constructing joystick objects
@@ -107,7 +108,7 @@ bool isBall=0;
 //Sets climber values
 // #define CLIMBER_SPEED 0.5
 //Changed on sunday 3/17/19
-#define CLIMBER_SPEED 0.4
+#define CLIMBER_SPEED 0.7
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
   WPI_TalonSRX * m_leftelevator =  new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
@@ -181,6 +182,13 @@ bool isBall=0;
      //Adding camera using IP address
      cs::AxisCamera ipCamera = frc::CameraServer::GetInstance()->AddAxisCamera("10.5.9.53");
      cs::UsbCamera usbcamera = frc::CameraServer::GetInstance()->StartAutomaticCapture();
+     
+     
+     //usbcamera.SetResolution(720, 480);
+     //usbcamera.SetResolution(500, 480);
+     usbcamera.SetResolution(480,320);
+     usbcamera.SetFPS(80);
+     // frc::SmartDashboard::PutNumber("Resolution: ", usbcamera.getResolution());
   }
 
   void elevEncoderInit() {
@@ -198,17 +206,20 @@ bool isBall=0;
     if (m_rightelevator->SetSelectedSensorPosition(51, 0, kTimeoutMs)) {
       canInit |= 0x1 << 1;
     }
-
+    #ifdef debug
     frc::SmartDashboard::PutNumber("canInit:", canInit);
     //m_rightelevator->SetSelectedSensorPosition(0, 0, 50); 
+    #endif
   }
 
   void AutonomousInit() {
     // Setting the grabber so that the piston is out
     panelSol.Set(frc::DoubleSolenoid::Value::kForward);
+    shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
     //changing the value of bool out to reflect that
     out=1;
     ElevatorInit();
+    ArmInit();
   }
 
 /*-------------------------------------------------------------------------*/
@@ -232,6 +243,16 @@ http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1mo
     m_leftelevator->ConfigContinuousCurrentLimit( MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS, 15);
     m_leftelevator->ConfigPeakCurrentLimit( 0, 15 );
   }
+
+  void ArmInit() {
+    m_arm1->EnableCurrentLimit( true );
+    m_arm1->ConfigContinuousCurrentLimit( MOTOR_ARM_CONTINUOUS_AMPS, 0);
+    m_arm1->ConfigPeakCurrentLimit( 0 , 15 );
+
+    m_arm2->EnableCurrentLimit( true );
+    m_arm2->ConfigContinuousCurrentLimit( MOTOR_ARM_CONTINUOUS_AMPS, 0);
+    m_arm2->ConfigPeakCurrentLimit( 0 , 15 );
+  }
   
   void AutonomousPeriodic() {
     TeleopPeriodic();
@@ -252,16 +273,18 @@ http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1mo
     //Counter to see how many times Teleop has gone through its loop
     static int i;
     i++;
+    #ifdef debug
     frc::SmartDashboard::PutNumber("teleocount", i);
-
+    #endif
 
     
 
     actualRight=rf_encoder.GetVelocity();
     actualLeft=-lr_encoder.GetVelocity();
+    #ifdef debug
     frc::SmartDashboard::PutNumber("Actual Right 3.56", rf_encoder.GetVelocity());
     frc::SmartDashboard::PutNumber("Actual Left 3.56", lr_encoder.GetVelocity());
-
+    #endif
 
     alfa=0.05;
     averageVelocityRight=alfa*actualRight+(1-alfa)*averageVelocityRight;
@@ -314,6 +337,7 @@ http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1mo
 
     #else
     WestCoastDrive();
+    //Arcade();
     #endif
 
     // If "A" pressed, set elev to medium height
@@ -481,16 +505,41 @@ void ElevatorDisplay()
 //WestCoast Drive Function 
 void WestCoastDrive() {
 
-     rval= -r_stick.GetY();
-     lval= l_stick.GetY();
-     if (rval<0.05 && rval>-0.05){
+    float deadband = 0.05;
+
+    //  rval= -pow(r_stick.GetY(), 3);
+    //  lval= pow(l_stick.GetY(), 3);
+    rval = -r_stick.GetY() * r_stick.GetY() * r_stick.GetY();
+    lval = l_stick.GetY() * l_stick.GetY() * l_stick.GetY();
+     if (rval<deadband && rval>-deadband){
        rval=0;
        }
-      if (lval<0.05 && lval>-0.05){
+      if (lval<deadband && lval>-deadband){
        lval=0;
        }
 
     double WEST_COAST_SPEED = 1.0;
+
+    /*if (r_stick.GetY() < 0) {
+      rval = -rval;
+    } 
+    else if (r_stick.GetY > 0) {
+      rval = abs(rval);
+    }
+
+    if (l_stick.GetY() < 0) {
+      lval = -lval;
+    } 
+    else if (l_stick.GetY > 0) {
+      lval = abs(lval);
+    }*/
+
+    // if (l_stick.GetRawButtonPressed(2)) {
+    //   m_rr.Set( -r_stick.GetY()/2 );
+    //   m_rf.Set( -r_stick.GetY()/2 );
+    //   m_lf.Set( l_stick.GetY()/2 );
+    //   m_lr.Set( l_stick.GetY()/2 );
+    // }
 
      m_rf.Set(rval * WEST_COAST_SPEED );
      m_rr.Set(rval * WEST_COAST_SPEED );
@@ -518,9 +567,9 @@ void WestCoastDrive() {
 
   void Elevator() {
     //positive setPoint indicates upwards direction
-    float setPoint = .12+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
-
-
+    //Practice bot anti-gravity is 0.12
+    //float setPoint = .12+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
+    float setPoint = .07+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
     
     /*if ((setPoint < 0)) {
       setPoint=.1+floor(pow(-logicontroller.GetRawAxis(3),));
@@ -533,20 +582,23 @@ void WestCoastDrive() {
     
     //float setPoint=0.1;
 
-    //limit switch value of 1 eqals open
-    frc::SmartDashboard::PutNumber("logicontroller", setPoint);
-
     if (elevLimitBottom->Get() && setPoint < 0) {
-     setPoint=0.1;
+    setPoint=0.0;
     }
-    /*if (elevLimitTop->Get() && setPoint > 0) {
-     setPoint=0.1;
-    }*/
-    m_rightelevator->Set((setPoint/2000)*1000);
-    m_leftelevator->Set((-setPoint/2000)*1000);
-    frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
-    frc::SmartDashboard::PutNumber("elevLimitTop", (int) elevLimitTop->Get());
+    if (!(elevLimitTop->Get()) && setPoint > 0) {
+      setPoint=0.0;
+    }
     
+
+      //changed setpoint from 2000 to 1000
+      m_rightelevator->Set((setPoint/1000)*1000);
+      m_leftelevator->Set((-setPoint/1000)*1000);
+      frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
+      frc::SmartDashboard::PutNumber("elevLimitTop", (int) elevLimitTop->Get());
+      
+      //limit switch value of 1 eqals open
+      frc::SmartDashboard::PutNumber("logicontroller", setPoint);
+
  }
 
  void Arm() {
@@ -637,6 +689,7 @@ void WestCoastDrive() {
     static bool dbgclimber = false;
 
     if (dbgclimber) {
+      //m_climber_1->Set(0.25);
       m_climber_1->Set(0.25);
     }
 

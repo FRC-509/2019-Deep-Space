@@ -9,12 +9,13 @@
 #include <frc/WPILib.h>
 #include <rev/CANSparkMax.h>
 #include <frc/PWMTalonSRX.h>
+//#include <TalonSRX.h>
 #include <frc/Compressor.h>
 #include <frc/TimedRobot.h>
 #include <frc/RobotDrive.h>
 #include <frc/WPILib.h>
 #include <ctre/Phoenix.h>
-#include <frc/Encoder.h>
+#include <frc/Encoder.h> 
 #include <cameraserver/CameraServer.h>
 #include <vision/VisionRunner.h>
 #include <iostream>
@@ -22,7 +23,6 @@
 class Robot : public frc::TimedRobot {
 
 public:
-//Can't use the number zero so this replaces it. 
   #define COMP_ROBOT
   #ifdef COMP_ROBOT
     #define RIGHT_STICK 0
@@ -41,6 +41,7 @@ public:
     #define TALON_SRX_ARM_2 5
     #define TALON_SRX_INTAKE 14
     #define TALON_SRX_CLIMBER_1 15
+    //#define BACK_SLOWLY_SPEED 100
   
   #else
     #define RIGHT_STICK 0
@@ -63,13 +64,21 @@ public:
 
   #endif
 
+  //At 20 amps, elev goes from lowest point to highest point in 2.5 seconds
+  //At 15 amps, elev goes from lowest point to highest point in 2.5 seconds
+  //At 10 amps, elev goes from lowest point to highest point in 3.0 seconds
+  //At 30 amps, elev goes from lowest point to highest point in 1.9 seconds
+  #define MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS 30
+  #define MOTOR_ARM_CONTINUOUS_AMPS 32
+  // other motor max amp values should go above this line.
+
 //Constructing joystick objects
   
   frc::Joystick r_stick{ RIGHT_STICK };
   frc::Joystick l_stick{ LEFT_STICK };
   frc::Joystick logicontroller{ CONTROLLER };
 
-//Constructing motor controller objects (Spark Max)
+//Constructing drive train motor controller objects (Spark Max)
 
   rev::CANSparkMax m_lr{ SPARK_MAX_LEFT_REAR , rev::CANSparkMax::MotorType::kBrushless};
   rev::CANSparkMax m_lf{ SPARK_MAX_LEFT_FRONT , rev::CANSparkMax::MotorType::kBrushless};
@@ -92,11 +101,17 @@ public:
 
 bool isBall=0;
 
+#ifdef BACK_SLOWLY_SPEED
+  bool backSlowly=false;
+#endif
+
 //Sets climber values
-#define CLIMBER_SPEED 0.5
+// #define CLIMBER_SPEED 0.5
+//Changed on sunday 3/17/19
+#define CLIMBER_SPEED 0.7
 
   WPI_TalonSRX * m_rightelevator = new WPI_TalonSRX( TALON_SRX_ELEVATOR_RIGHT );
-  WPI_TalonSRX * m_leftelevator = new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
+  WPI_TalonSRX * m_leftelevator =  new WPI_TalonSRX{ TALON_SRX_ELEVATOR_LEFT };
   WPI_TalonSRX * m_arm1 = new WPI_TalonSRX{ TALON_SRX_ARM_1 };
   WPI_TalonSRX * m_arm2 = new WPI_TalonSRX{ TALON_SRX_ARM_2 };
   WPI_TalonSRX * m_intake = new WPI_TalonSRX{ TALON_SRX_INTAKE };
@@ -167,6 +182,13 @@ bool isBall=0;
      //Adding camera using IP address
      cs::AxisCamera ipCamera = frc::CameraServer::GetInstance()->AddAxisCamera("10.5.9.53");
      cs::UsbCamera usbcamera = frc::CameraServer::GetInstance()->StartAutomaticCapture();
+     
+     
+     //usbcamera.SetResolution(720, 480);  // try with .SetFPS(15)
+     //usbcamera.SetResolution(500, 480);
+     usbcamera.SetResolution(480,320);
+     usbcamera.SetFPS(30);
+     // frc::SmartDashboard::PutNumber("Resolution: ", usbcamera.getResolution());
   }
 
   void elevEncoderInit() {
@@ -184,18 +206,52 @@ bool isBall=0;
     if (m_rightelevator->SetSelectedSensorPosition(51, 0, kTimeoutMs)) {
       canInit |= 0x1 << 1;
     }
-
+    #ifdef debug
     frc::SmartDashboard::PutNumber("canInit:", canInit);
     //m_rightelevator->SetSelectedSensorPosition(0, 0, 50); 
+    #endif
   }
 
   void AutonomousInit() {
     // Setting the grabber so that the piston is out
     panelSol.Set(frc::DoubleSolenoid::Value::kForward);
+    shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
     //changing the value of bool out to reflect that
     out=1;
+    ElevatorInit();
+    ArmInit();
+  }
+
+/*-------------------------------------------------------------------------*/
+/* ElevatorInit()
+   See the following document for API usage.  In simple case, you may set 
+   PeakCurrentLimit to 0.
+http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1motorcontrol_1_1can_1_1_talon_s_r_x.html
+*/
+
+  void ElevatorInit() {
     setSetPointElev= m_rightelevator->GetSelectedSensorPosition(0);
-    setPointElev= m_rightelevator->GetSelectedSensorPosition(0);
+    setPointElev   = m_rightelevator->GetSelectedSensorPosition(0);
+
+    // Right elevator
+    m_rightelevator->EnableCurrentLimit( true );
+    m_rightelevator->ConfigContinuousCurrentLimit( MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS, 15);
+    m_rightelevator->ConfigPeakCurrentLimit( 0, 15 );
+    // not needed: m_rightelevator->ConfigPeakCurrentDuration( )
+    // Left elevator
+    m_leftelevator->EnableCurrentLimit( true );
+    m_leftelevator->ConfigContinuousCurrentLimit( MOTOR_ANDYMARK_775_MAX_CONTINUOUS_AMPS, 15);
+    m_leftelevator->ConfigPeakCurrentLimit( 0, 15 );
+  }
+
+  void ArmInit() {
+    m_arm1->EnableCurrentLimit( true );
+    m_arm1->ConfigContinuousCurrentLimit( MOTOR_ARM_CONTINUOUS_AMPS, 0);
+    m_arm1->ConfigPeakCurrentLimit( 0 , 15 );
+
+    m_arm2->EnableCurrentLimit( true );
+    m_arm2->ConfigContinuousCurrentLimit( MOTOR_ARM_CONTINUOUS_AMPS, 0);
+    m_arm2->ConfigPeakCurrentLimit( 0 , 15 );
   }
   
   void AutonomousPeriodic() {
@@ -217,16 +273,18 @@ bool isBall=0;
     //Counter to see how many times Teleop has gone through its loop
     static int i;
     i++;
+    #ifdef debug
     frc::SmartDashboard::PutNumber("teleocount", i);
-
+    #endif
 
     
 
     actualRight=rf_encoder.GetVelocity();
     actualLeft=-lr_encoder.GetVelocity();
+    #ifdef debug
     frc::SmartDashboard::PutNumber("Actual Right 3.56", rf_encoder.GetVelocity());
     frc::SmartDashboard::PutNumber("Actual Left 3.56", lr_encoder.GetVelocity());
-
+    #endif
 
     alfa=0.05;
     averageVelocityRight=alfa*actualRight+(1-alfa)*averageVelocityRight;
@@ -240,16 +298,31 @@ bool isBall=0;
     // if(1||actual==0.0){}
     //   else{averageVelocity = actual;}
 
-    setPointRight=-5000*pow(r_stick.GetY(),3);
-    setPointLeft=-5000*pow(l_stick.GetY(),3);
+    setPointRight=-5000*pow(r_stick.GetY()*0.75,3);
+    setPointLeft=-5000*pow(l_stick.GetY()*0.75,3);
     if (setPointLeft<50 && setPointLeft>-50){
       setPointLeft=0;
     }
     if (setPointRight<50 && setPointRight>-50){
       setPointRight=0;
     }
+    #ifdef BACK_SLOWLY_SPEED
+    if(l_stick.GetRawButtonPressed(3)){
+      backSlowly= !backSlowly;
+      }
+    if(backSlowly){
+      setPointLeft=-BACK_SLOWLY_SPEED;
+      setPointRight=-BACK_SLOWLY_SPEED;
+      }
+    
+    frc::SmartDashboard::PutString("Back slowly", (backSlowly ? "yes": "no"));
 
-    #define DRIVE_PID
+
+
+    #endif
+    
+
+    //#define DRIVE_PID
     #ifdef DRIVE_PID
 
     double errorRight=setPointRight-averageVelocityRight;
@@ -264,6 +337,7 @@ bool isBall=0;
 
     #else
     WestCoastDrive();
+    //Arcade();
     #endif
 
     // If "A" pressed, set elev to medium height
@@ -277,10 +351,9 @@ bool isBall=0;
     //   }
        
     // }
-
     
     
-    #define ELEV_PID
+    //#define ELEV_PID
 
     #ifdef ELEV_PID
     double errorElev = setSetPointElev - m_rightelevator->GetSelectedSensorPosition(0);
@@ -349,6 +422,10 @@ bool isBall=0;
     Elevator();
     #endif
 
+    canDisplayCount++;
+    if( canDisplayCount % (5*50) == 0 ) // every 5 seconds
+      ElevatorDisplay();
+
     Arm();
     if (logicontroller.GetRawButtonPressed(10)) { 
       ToggleGrabber(); 
@@ -358,14 +435,14 @@ bool isBall=0;
     climber();
     
     
-    if (r_stick.GetRawButton(1)) {
-       shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
-     } else {
+    // if (r_stick.GetRawButton(1)) {
+    //    shiftSol.Set(frc::DoubleSolenoid::Value::kForward);
+    //  } else {
 
-       shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
-     }
+    //    shiftSol.Set(frc::DoubleSolenoid::Value::kReverse);
+    //  }
 
-    if(canDisplayCount++ % 20 == 0)
+    if(canDisplayCount % 20 == 0)
     {
       /* CANifier */
       //std::cout << "CANifier:\tPosition: " << _can->GetQuadraturePosition() << "\tVelocity" << _can->GetQuadratureVelocity() <<
@@ -410,23 +487,102 @@ bool isBall=0;
     #endif
    }
 
+/*--------------------------------------------------------------------------*/
+void ElevatorDisplay()
+{
+  TalonSRXConfiguration allConfigs; 
+  m_rightelevator->GetAllConfigs( allConfigs );
+
+  std::string disp = allConfigs.toString();
+
+  frc::SmartDashboard::PutString("right elev config", disp);
+  //frc::SmartDashboard::PutNumber("right elev PID", (double) allConfigs.primaryPID);
+  frc::SmartDashboard::PutNumber("right elev continuousCurrentLimit", (double) allConfigs.continuousCurrentLimit);
+  frc::SmartDashboard::PutNumber("right elev peakCurrentLimit", (double) allConfigs.peakCurrentLimit);
+  frc::SmartDashboard::PutNumber("right elev peakCurrentDuration", (double) allConfigs.peakCurrentDuration);  
+}
 
 //WestCoast Drive Function 
+// Hockey stick acceleration curve:
+//   Stick output  Desired Motor Control
+//   ============  =====================
+//     0.0           0.0
+//     0.1           0.02
+//     0.2           0.04
+//     0.3           0.06
+//     0.4           0.085
+//     0.5           0.12
+//     0.6           0.2
+//     0.7           0.33
+//     0.8           0.45
+//     0.9           0.7
+//     1.0           1.0
+//
 void WestCoastDrive() {
 
-     rval= -r_stick.GetY();
-     lval= l_stick.GetY();
-     if (rval<0.05 && rval>-0.05){
-       rval=0;
-       }
-      if (lval<0.05 && lval>-0.05){
-       lval=0;
-       }
+    float deadband = 0.05;
 
-     m_rf.Set(rval);
-     m_rr.Set(rval);
-     m_lf.Set(lval);
-     m_lr.Set(lval);
+    //  rval= -pow(r_stick.GetY(), 3);
+    //  lval= pow(l_stick.GetY(), 3);
+    #define BASIC_CUBE_THROTTLE
+    #ifdef BASIC_CUBE_THROTTLE
+    rval = -r_stick.GetY() * r_stick.GetY() * r_stick.GetY();
+    lval = l_stick.GetY() * l_stick.GetY() * l_stick.GetY();
+    #else
+    // Hockey stick throttle control function by Ian B. created using Desmos for analysis.
+    // https://www.desmos.com/calculator/olh33n9l3i
+    //   output = Ae^{B*input}-A
+    // Input range to output functional description:
+    // 0.00 to 0.70 : sensitive
+    // 0.70 to 1.0  : less sensitive for faster acceleration.
+    #define HOCKEY_CURVE_A 0.0251839
+    #define HOCKEY_CURVE_B 3.71126
+
+    rval = -1.0 * (HOCKEY_CURVE_A * exp( HOCKEY_CURVE_B * r_stick.GetY() ) - HOCKEY_CURVE_A); // Ae^{Bs}-A
+    if (rval < 1.0)  // should not be needed but enforce lower bound to motor.
+        rval = -1.0;  
+    lval =        (HOCKEY_CURVE_A * exp( HOCKEY_CURVE_B * l_stick.GetY() ) - HOCKEY_CURVE_A); // Ae^{Bs}-A
+    if (lval > 1.0)  // should not be needed but enforce upper bound to motor.
+        lval = 1.0;
+    
+    #endif
+
+    if (rval<deadband && rval>-deadband) {
+       rval=0;
+    }
+    if (lval<deadband && lval>-deadband) {
+       lval=0;
+    }
+
+    // Max 1.0 by default, decrease to reduce speed. for example 0.8
+    double WEST_COAST_SPEED = 1.0; 
+
+    /*if (r_stick.GetY() < 0) {
+      rval = -rval;
+    } 
+    else if (r_stick.GetY > 0) {
+      rval = abs(rval);
+    }
+    if (l_stick.GetY() < 0) {
+      lval = -lval;
+    } 
+    else if (l_stick.GetY > 0) {
+      lval = abs(lval);
+    }*/
+
+    // if (l_stick.GetRawButtonPressed(2)) {
+    //   m_rr.Set( -r_stick.GetY()/2 );
+    //   m_rf.Set( -r_stick.GetY()/2 );
+    //   m_lf.Set( l_stick.GetY()/2 );
+    //   m_lr.Set( l_stick.GetY()/2 );
+    // }
+
+    // Arg to Set() is the speed. Value should be between 
+    // -1.0 and 1.0 per SPARK documentation
+     m_rf.Set(rval * WEST_COAST_SPEED );
+     m_rr.Set(rval * WEST_COAST_SPEED );
+     m_lf.Set(lval * WEST_COAST_SPEED );
+     m_lr.Set(lval * WEST_COAST_SPEED );
 
 
      if (r_stick.GetRawButton(1)) {
@@ -449,9 +605,9 @@ void WestCoastDrive() {
 
   void Elevator() {
     //positive setPoint indicates upwards direction
-    float setPoint = .12+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
-
-
+    //Practice bot anti-gravity is 0.12
+    //float setPoint = .12+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
+    float setPoint = .07+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
     
     /*if ((setPoint < 0)) {
       setPoint=.1+floor(pow(-logicontroller.GetRawAxis(3),));
@@ -464,24 +620,30 @@ void WestCoastDrive() {
     
     //float setPoint=0.1;
 
-    //limit switch value of 1 eqals open
-    frc::SmartDashboard::PutNumber("logicontroller", setPoint);
-
     if (elevLimitBottom->Get() && setPoint < 0) {
-     setPoint=0.1;
+    setPoint=0.0;
     }
-    /*if (elevLimitTop->Get() && setPoint > 0) {
-     setPoint=0.1;
-    }*/
-    m_rightelevator->Set((setPoint/2000)*1000);
-    m_leftelevator->Set((-setPoint/2000)*1000);
-    frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
-    frc::SmartDashboard::PutNumber("elevLimitTop", (int) elevLimitTop->Get());
+    if (!(elevLimitTop->Get()) && setPoint > 0) {
+      setPoint=0.0;
+    }
     
+
+      //changed setpoint from 2000 to 1000
+      m_rightelevator->Set((setPoint/1000)*1000);
+      m_leftelevator->Set((-setPoint/1000)*1000);
+      frc::SmartDashboard::PutNumber("elevLimitBottom", (int) elevLimitBottom->Get());
+      frc::SmartDashboard::PutNumber("elevLimitTop", (int) elevLimitTop->Get());
+      
+      //limit switch value of 1 eqals open
+      frc::SmartDashboard::PutNumber("logicontroller", setPoint);
+
  }
 
  void Arm() {
-    float setPoint=-0.05+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
+    // float setPoint=-0.05+floor(logicontroller.GetRawAxis(1)*1000)/1000;
+    float setPoint=-0.035+floor(logicontroller.GetRawAxis(1)*1000)/1000;
+    //Arm drops slowly when horizontal with 0.015
+    // float setPoint=-0.015+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
     //limit switch value of 1 eqals open
 
     frc::SmartDashboard::PutNumber("Arm Logic Controller", setPoint);
@@ -561,10 +723,11 @@ void WestCoastDrive() {
   }
 
   void climber() {
-    // Set to true to turn motors on permanently 
+// Set to true to turn motors on
     static bool dbgclimber = false;
 
     if (dbgclimber) {
+      //m_climber_1->Set(0.25);
       m_climber_1->Set(0.25);
     }
 

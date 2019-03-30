@@ -509,16 +509,33 @@ void WestCoastDrive() {
 
     //  rval= -pow(r_stick.GetY(), 3);
     //  lval= pow(l_stick.GetY(), 3);
+    #define BASIC_CUBE_THROTTLE
+    #ifdef BASIC_CUBE_THROTTLE
     rval = -r_stick.GetY() * r_stick.GetY() * r_stick.GetY();
     lval = l_stick.GetY() * l_stick.GetY() * l_stick.GetY();
-     if (rval<deadband && rval>-deadband){
-       rval=0;
-       }
-      if (lval<deadband && lval>-deadband){
-       lval=0;
-       }
+    #else
+    // Hockey stick throttle control function by Ian B. created using Desmos for analysis.
+    // https://www.desmos.com/calculator/kmhh0xxw6y
+    //   output = Ae^{B*input}-A
+    // Input range to output functional description:
+    // 0.00 to 0.70 : sensitive
+    // 0.70 to 1.0  : less sensitive for faster acceleration.
+    #define HOCKEY_CURVE_A 0.0134405
+    #define HOCKEY_CURVE_B 4.27364
 
-    double WEST_COAST_SPEED = 1.0;
+    rval = -1.0 * (HOCKEY_CURVE_A * exp( HOCKEY_CURVE_B * r_stick.GetY() ) - HOCKEY_CURVE_A); // Ae^{Bs}-A
+    lval =        (HOCKEY_CURVE_A * exp( HOCKEY_CURVE_B * l_stick.GetY() ) - HOCKEY_CURVE_A); // Ae^{Bs}-A
+    
+    #endif
+
+    if (rval<deadband && rval>-deadband) {
+       rval=0;
+    }
+    if (lval<deadband && lval>-deadband) {
+       lval=0;
+    }
+
+    double WEST_COAST_SPEED = 1.0; // 1.0 default, make less to reduce speed.
 
     /*if (r_stick.GetY() < 0) {
       rval = -rval;
@@ -526,7 +543,6 @@ void WestCoastDrive() {
     else if (r_stick.GetY > 0) {
       rval = abs(rval);
     }
-
     if (l_stick.GetY() < 0) {
       lval = -lval;
     } 
@@ -541,6 +557,7 @@ void WestCoastDrive() {
     //   m_lr.Set( l_stick.GetY()/2 );
     // }
 
+    // Arg to Set is the speed. Value should be between -1.0 and 1.0.
      m_rf.Set(rval * WEST_COAST_SPEED );
      m_rr.Set(rval * WEST_COAST_SPEED );
      m_lf.Set(lval * WEST_COAST_SPEED );
@@ -685,7 +702,7 @@ void WestCoastDrive() {
   }
 
   void climber() {
-    // Set to true to turn motors on permanently 
+// Set to true to turn motors on
     static bool dbgclimber = false;
 
     if (dbgclimber) {

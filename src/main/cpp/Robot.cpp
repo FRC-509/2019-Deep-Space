@@ -184,10 +184,10 @@ bool isBall=0;
      cs::UsbCamera usbcamera = frc::CameraServer::GetInstance()->StartAutomaticCapture();
      
      
-     //usbcamera.SetResolution(720, 480);
+     //usbcamera.SetResolution(720, 480);  // try with .SetFPS(15)
      //usbcamera.SetResolution(500, 480);
      usbcamera.SetResolution(480,320);
-     usbcamera.SetFPS(80);
+     usbcamera.SetFPS(30);
      // frc::SmartDashboard::PutNumber("Resolution: ", usbcamera.getResolution());
   }
 
@@ -503,6 +503,21 @@ void ElevatorDisplay()
 }
 
 //WestCoast Drive Function 
+// Hockey stick acceleration curve:
+//   Stick output  Desired Motor Control
+//   ============  =====================
+//     0.0           0.0
+//     0.1           0.02
+//     0.2           0.04
+//     0.3           0.06
+//     0.4           0.085
+//     0.5           0.12
+//     0.6           0.2
+//     0.7           0.33
+//     0.8           0.45
+//     0.9           0.7
+//     1.0           1.0
+//
 void WestCoastDrive() {
 
     float deadband = 0.05;
@@ -515,16 +530,20 @@ void WestCoastDrive() {
     lval = l_stick.GetY() * l_stick.GetY() * l_stick.GetY();
     #else
     // Hockey stick throttle control function by Ian B. created using Desmos for analysis.
-    // https://www.desmos.com/calculator/kmhh0xxw6y
+    // https://www.desmos.com/calculator/olh33n9l3i
     //   output = Ae^{B*input}-A
     // Input range to output functional description:
     // 0.00 to 0.70 : sensitive
     // 0.70 to 1.0  : less sensitive for faster acceleration.
-    #define HOCKEY_CURVE_A 0.0134405
-    #define HOCKEY_CURVE_B 4.27364
+    #define HOCKEY_CURVE_A 0.0251839
+    #define HOCKEY_CURVE_B 3.71126
 
     rval = -1.0 * (HOCKEY_CURVE_A * exp( HOCKEY_CURVE_B * r_stick.GetY() ) - HOCKEY_CURVE_A); // Ae^{Bs}-A
+    if (rval < 1.0)  // should not be needed but enforce lower bound to motor.
+        rval = -1.0;  
     lval =        (HOCKEY_CURVE_A * exp( HOCKEY_CURVE_B * l_stick.GetY() ) - HOCKEY_CURVE_A); // Ae^{Bs}-A
+    if (lval > 1.0)  // should not be needed but enforce upper bound to motor.
+        lval = 1.0;
     
     #endif
 
@@ -535,7 +554,8 @@ void WestCoastDrive() {
        lval=0;
     }
 
-    double WEST_COAST_SPEED = 1.0; // 1.0 default, make less to reduce speed.
+    // Max 1.0 by default, decrease to reduce speed. for example 0.8
+    double WEST_COAST_SPEED = 1.0; 
 
     /*if (r_stick.GetY() < 0) {
       rval = -rval;
@@ -557,7 +577,8 @@ void WestCoastDrive() {
     //   m_lr.Set( l_stick.GetY()/2 );
     // }
 
-    // Arg to Set is the speed. Value should be between -1.0 and 1.0.
+    // Arg to Set() is the speed. Value should be between 
+    // -1.0 and 1.0 per SPARK documentation
      m_rf.Set(rval * WEST_COAST_SPEED );
      m_rr.Set(rval * WEST_COAST_SPEED );
      m_lf.Set(lval * WEST_COAST_SPEED );

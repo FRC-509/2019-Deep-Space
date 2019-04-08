@@ -94,10 +94,12 @@ public:
 
 //Sets heights in encoder counts that need to be reached for each slot on the rocket. 
 #define ELEV_SPEED 250
+//#define ELEV_SPEED 1000
 #define DISK_ONE_HEIGHT 830
 #define DISK_TWO_HEIGHT 13480
 #define DISK_THREE_HEIGHT 22000
 #define BALL_DISPLACEMENT 5680
+#define MAX_ELEV_HEIGHT 23000
 
 bool isBall=0;
 
@@ -151,6 +153,7 @@ bool isBall=0;
 //Zach's Far Superior PID Varriables
   double integratStateRight=0, integratStateLeft=0, integratStateElev=0;
   double integratGainRight=0.000005, integratGainLeft=integratGainRight, integratGainElev=0.000001;//0.0000001;
+  //propright was 0.0002 before
   double propGainRight=0.0002, propGainLeft=propGainRight, propGainElev=0.00038;
   double averageVelocityRight = 0.0;
   double averageVelocityLeft = 0.0;
@@ -182,13 +185,17 @@ bool isBall=0;
      //Adding camera using IP address
      cs::AxisCamera ipCamera = frc::CameraServer::GetInstance()->AddAxisCamera("10.5.9.53");
      cs::UsbCamera usbcamera = frc::CameraServer::GetInstance()->StartAutomaticCapture();
+     cs::UsbCamera usbcamera2 = frc::CameraServer::GetInstance()->StartAutomaticCapture();
      
-     
-     //usbcamera.SetResolution(720, 480);  // try with .SetFPS(15)
+     //usbcamera.SetResolution(720, 480);
      //usbcamera.SetResolution(500, 480);
-     usbcamera.SetResolution(480,320);
-     usbcamera.SetFPS(30);
+     //usbcamera.SetResolution(480,320);
+     usbcamera.SetResolution(1,1);
+     usbcamera.SetFPS(25);
      // frc::SmartDashboard::PutNumber("Resolution: ", usbcamera.getResolution());
+
+     usbcamera2.SetResolution(320,180);
+     usbcamera2.SetFPS(25);
   }
 
   void elevEncoderInit() {
@@ -298,38 +305,48 @@ http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1mo
     // if(1||actual==0.0){}
     //   else{averageVelocity = actual;}
 
+    //For Drive Train PID:
+    //Establishment of setPoints for the left and right drive train motors
     setPointRight=-5000*pow(r_stick.GetY()*0.75,3);
     setPointLeft=-5000*pow(l_stick.GetY()*0.75,3);
+    //Deadband for the possible setpoints of the motors
     if (setPointLeft<50 && setPointLeft>-50){
       setPointLeft=0;
     }
     if (setPointRight<50 && setPointRight>-50){
       setPointRight=0;
     }
+    //If backing up slowly based on a button press is desired, this can be enabled
     #ifdef BACK_SLOWLY_SPEED
+    //This toggles a boolean on button press. 
     if(l_stick.GetRawButtonPressed(3)){
       backSlowly= !backSlowly;
       }
+    //If bool backSlowly is pressed, sets the drive train setpoints
+    //to the defined BACK_SLOWLY_SPEED 
+    //a positive BACK_SLOWLY_SPEED value should yield backwards motion (untested)
     if(backSlowly){
       setPointLeft=-BACK_SLOWLY_SPEED;
       setPointRight=-BACK_SLOWLY_SPEED;
       }
     
     frc::SmartDashboard::PutString("Back slowly", (backSlowly ? "yes": "no"));
-
-
-
     #endif
     
 
     //#define DRIVE_PID
     #ifdef DRIVE_PID
-
+    
+    //Calculates "error=expected-actual" for the right and left drivetrain motors
     double errorRight=setPointRight-averageVelocityRight;
     double errorLeft=setPointLeft-averageVelocityLeft;
+
+    //Updates PID values, outputs the new values to feed to the motor controllers, stores values in doubles
     double MVRight=updatePIDRight(errorRight);
     double MVLeft=updatePIDLeft(errorLeft);
 
+
+    //Sets motors to correct values based on PID output
     m_rf.Set(MVRight);
     m_rr.Set(MVRight);
     m_lf.Set(-MVLeft);
@@ -353,13 +370,17 @@ http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1mo
     // }
     
     
-    //#define ELEV_PID
+    #define ELEV_PID
 
     #ifdef ELEV_PID
+
+    //Calculates error values as "error=expected-actual" for elevator
     double errorElev = setSetPointElev - m_rightelevator->GetSelectedSensorPosition(0);
+    //Updates Elevator PID, outputs new motor value, frees value to elevator motors
     double MVElev = updatePIDElev(errorElev);
     m_rightelevator->Set(MVElev/2);
     m_leftelevator->Set(-MVElev/2);
+
     if (logicontroller.GetRawButtonPressed(1)) {
          isBall = !isBall;
     } 
@@ -384,22 +405,24 @@ http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1mo
     frc::SmartDashboard::PutNumber("Panel or Cargo2", isBall);
 
     
-    float joyVal3=-logicontroller.GetRawAxis(3);
+    float joyVal3=-logicontroller.GetRawAxis(1);
     //setPointElev = 5000;
 
     if ( joyVal3 < -0.05 || joyVal3 > 0.05 ) {
       //setPointElev = 1000*joyVal3 +  m_leftelevator->GetSelectedSensorPosition(0);
-      if (joyVal3>0) {
-        setPointElev = 100*joyVal3 + setPointElev;
-      } else {
-        setPointElev = 100*pow(joyVal3, 3) + setPointElev;
-      }
+      // if (joyVal3>0) {
+      //   setPointElev = 100*joyVal3 + setPointElev;
+      // } else {
+      //   setPointElev = 100*pow(joyVal3, 3) + setPointElev;
+      // }
+
+        setPointElev = ELEV_SPEED*joyVal3 + setPointElev;
       
     }
     frc::SmartDashboard::PutNumber("SetPointElev2", setPointElev);
 
-    if (setPointElev>23000){
-      setPointElev=23000;
+    if (setPointElev>MAX_ELEV_HEIGHT){
+      setPointElev=MAX_ELEV_HEIGHT;
       }
 
     if (setPointElev<300){
@@ -415,8 +438,13 @@ http://www.ctr-electronics.com/downloads/api/cpp/html/classctre_1_1phoenix_1_1mo
       } else {
         setSetPointElev -= ELEV_SPEED;
       }
+    }
 
-
+    if (elevLimitBottom->Get() && setPointElev < 0) {
+      setPointElev=0.0;
+    }
+    if (!(elevLimitTop->Get()) && setPointElev > 0) {
+      setPointElev=MAX_ELEV_HEIGHT;
     }
     #else
     Elevator();
@@ -503,21 +531,6 @@ void ElevatorDisplay()
 }
 
 //WestCoast Drive Function 
-// Hockey stick acceleration curve:
-//   Stick output  Desired Motor Control
-//   ============  =====================
-//     0.0           0.0
-//     0.1           0.02
-//     0.2           0.04
-//     0.3           0.06
-//     0.4           0.085
-//     0.5           0.12
-//     0.6           0.2
-//     0.7           0.33
-//     0.8           0.45
-//     0.9           0.7
-//     1.0           1.0
-//
 void WestCoastDrive() {
 
     float deadband = 0.05;
@@ -607,7 +620,7 @@ void WestCoastDrive() {
     //positive setPoint indicates upwards direction
     //Practice bot anti-gravity is 0.12
     //float setPoint = .12+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
-    float setPoint = .07+floor(-logicontroller.GetRawAxis(3)*1000/1)/1000;
+    float setPoint = .07+floor(-logicontroller.GetRawAxis(1)*1000/1)/1000;
     
     /*if ((setPoint < 0)) {
       setPoint=.1+floor(pow(-logicontroller.GetRawAxis(3),));
@@ -622,9 +635,13 @@ void WestCoastDrive() {
 
     if (elevLimitBottom->Get() && setPoint < 0) {
     setPoint=0.0;
-    }
+    };
     if (!(elevLimitTop->Get()) && setPoint > 0) {
       setPoint=0.0;
+    }
+
+    if (setPoint > -0.05 && setPoint < 0.05) {
+      setPoint = 0.07;
     }
     
 
@@ -641,7 +658,7 @@ void WestCoastDrive() {
 
  void Arm() {
     // float setPoint=-0.05+floor(logicontroller.GetRawAxis(1)*1000)/1000;
-    float setPoint=-0.035+floor(logicontroller.GetRawAxis(1)*1000)/1000;
+    float setPoint=-0.035+floor(logicontroller.GetRawAxis(3)*1000)/1000;
     //Arm drops slowly when horizontal with 0.015
     // float setPoint=-0.015+floor(logicontroller.GetRawAxis(1)*1000)/1000; 
     //limit switch value of 1 eqals open
@@ -723,7 +740,7 @@ void WestCoastDrive() {
   }
 
   void climber() {
-// Set to true to turn motors on
+    // Set to true to turn motors on permanently 
     static bool dbgclimber = false;
 
     if (dbgclimber) {
